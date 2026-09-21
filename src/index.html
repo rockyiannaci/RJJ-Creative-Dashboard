@@ -83,6 +83,35 @@
       .chart-row { grid-template-columns: 1fr; }
     }
     .chart-card canvas { max-height: 280px; }
+    .detail-section { margin-top: 24px; }
+    .tabs {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 16px;
+    }
+    .tab-btn {
+      border: 1px solid var(--border);
+      background: var(--card);
+      color: var(--text);
+      padding: 8px 16px;
+      border-radius: 999px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .tab-btn.active {
+      color: white;
+      border-color: transparent;
+    }
+    .detail-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 16px;
+    }
+    @media (max-width: 1100px) {
+      .detail-row { grid-template-columns: 1fr; }
+    }
+    .detail-row canvas { max-height: 260px; }
     #loading, #error { color: var(--muted); font-size: 14px; padding: 40px 0; text-align: center; }
     #error { color: var(--down); }
   </style>
@@ -114,6 +143,24 @@
       <div class="card chart-card">
         <h2>By Creative Type (this week)</h2>
         <canvas id="typeChart"></canvas>
+      </div>
+    </div>
+
+    <div class="detail-section">
+      <div class="tabs" id="personTabs"></div>
+      <div class="detail-row">
+        <div class="card chart-card">
+          <h2>Weekly Volume</h2>
+          <canvas id="personWeeklyChart"></canvas>
+        </div>
+        <div class="card chart-card">
+          <h2>By Account (last <span id="detailWeekCount"></span> weeks)</h2>
+          <canvas id="personAccountChart"></canvas>
+        </div>
+        <div class="card chart-card">
+          <h2>By Creative Type (last <span id="detailWeekCount2"></span> weeks)</h2>
+          <canvas id="personTypeChart"></canvas>
+        </div>
       </div>
     </div>
   </div>
@@ -158,6 +205,15 @@
       return (d.getMonth() + 1) + '/' + d.getDate();
     }
 
+    var mainCharts = {};
+
+    function destroyMainChart(key) {
+      if (mainCharts[key]) {
+        mainCharts[key].destroy();
+        mainCharts[key] = null;
+      }
+    }
+
     function renderTrendChart(data) {
       var ctx = document.getElementById('trendChart');
       var datasets = data.people.map(function (person) {
@@ -170,7 +226,8 @@
           fill: false
         };
       });
-      new Chart(ctx, {
+      destroyMainChart('trend');
+      mainCharts.trend = new Chart(ctx, {
         type: 'line',
         data: {
           labels: data.weeks.map(shortWeekLabel),
@@ -187,11 +244,100 @@
     function renderBarChart(canvasId, breakdownObj) {
       var labels = Object.keys(breakdownObj);
       var values = labels.map(function (k) { return breakdownObj[k]; });
-      new Chart(document.getElementById(canvasId), {
+      destroyMainChart(canvasId);
+      mainCharts[canvasId] = new Chart(document.getElementById(canvasId), {
         type: 'bar',
         data: {
           labels: labels,
           datasets: [{ data: values, backgroundColor: '#4f5bff' }]
+        },
+        options: {
+          responsive: true,
+          plugins: { legend: { display: false } },
+          scales: { y: { beginAtZero: true, ticks: { precision: 0 } } }
+        }
+      });
+    }
+
+    var CURRENT_DATA = null;
+    var SELECTED_PERSON = null;
+    var personDetailCharts = {};
+
+    function renderPersonTabs(data) {
+      var container = document.getElementById('personTabs');
+      container.innerHTML = '';
+      data.people.forEach(function (person) {
+        var btn = document.createElement('button');
+        btn.className = 'tab-btn' + (person === SELECTED_PERSON ? ' active' : '');
+        btn.textContent = person;
+        var color = colorFor(person, data.people);
+        if (person === SELECTED_PERSON) {
+          btn.style.background = color;
+        }
+        btn.onclick = function () {
+          SELECTED_PERSON = person;
+          renderPersonTabs(data);
+          renderPersonDetail(data, person);
+        };
+        container.appendChild(btn);
+      });
+    }
+
+    function destroyChart(key) {
+      if (personDetailCharts[key]) {
+        personDetailCharts[key].destroy();
+        personDetailCharts[key] = null;
+      }
+    }
+
+    function renderPersonDetail(data, person) {
+      var detail = data.perPerson[person];
+      document.getElementById('detailWeekCount').textContent = data.weeks.length;
+      document.getElementById('detailWeekCount2').textContent = data.weeks.length;
+      var color = colorFor(person, data.people);
+
+      destroyChart('weekly');
+      personDetailCharts.weekly = new Chart(document.getElementById('personWeeklyChart'), {
+        type: 'bar',
+        data: {
+          labels: data.weeks.map(shortWeekLabel),
+          datasets: [{ data: detail.weeklyCounts, backgroundColor: color }]
+        },
+        options: {
+          responsive: true,
+          plugins: { legend: { display: false } },
+          scales: { y: { beginAtZero: true, ticks: { precision: 0 } } }
+        }
+      });
+
+      destroyChart('account');
+      var accountLabels = Object.keys(detail.accountBreakdown);
+      personDetailCharts.account = new Chart(document.getElementById('personAccountChart'), {
+        type: 'bar',
+        data: {
+          labels: accountLabels,
+          datasets: [{
+            data: accountLabels.map(function (a) { return detail.accountBreakdown[a]; }),
+            backgroundColor: color
+          }]
+        },
+        options: {
+          responsive: true,
+          plugins: { legend: { display: false } },
+          scales: { y: { beginAtZero: true, ticks: { precision: 0 } } }
+        }
+      });
+
+      destroyChart('type');
+      var typeLabels = Object.keys(detail.creativeTypeBreakdown);
+      personDetailCharts.type = new Chart(document.getElementById('personTypeChart'), {
+        type: 'bar',
+        data: {
+          labels: typeLabels,
+          datasets: [{
+            data: typeLabels.map(function (t) { return detail.creativeTypeBreakdown[t]; }),
+            backgroundColor: color
+          }]
         },
         options: {
           responsive: true,
@@ -208,10 +354,17 @@
         ? 'Last synced: ' + new Date(data.lastSyncAt).toLocaleString()
         : 'Not synced yet — click Refresh';
 
+      CURRENT_DATA = data;
+      if (!SELECTED_PERSON || data.people.indexOf(SELECTED_PERSON) === -1) {
+        SELECTED_PERSON = data.people[0];
+      }
+
       renderPersonCards(data);
       renderTrendChart(data);
       renderBarChart('accountChart', data.accountBreakdown.currentWeek);
       renderBarChart('typeChart', data.creativeTypeBreakdown.currentWeek);
+      renderPersonTabs(data);
+      renderPersonDetail(data, SELECTED_PERSON);
     }
 
     function loadDashboard() {

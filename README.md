@@ -67,10 +67,17 @@ sheet, so it loads fast regardless of how large the Asana project is.
 
 ## Updating after code changes
 
+Always redeploy to the **same deployment ID** your bookmark uses — plain
+`clasp deploy` with no ID creates a brand new deployment with a brand new
+URL, silently orphaning your bookmark on the old code.
+
 ```
 clasp push
-clasp deploy
+clasp deploy --deploymentId <your-bookmarked-deployment-id>
 ```
+
+Find your deployment IDs with `clasp deployments` if you don't have it
+handy — it's the id segment in your bookmarked `.../s/<id>/exec` URL.
 
 ## Adding a second pod (B1 or B2) later
 

@@ -134,6 +134,25 @@ function getDashboardData() {
     }).length;
   });
 
+  // Per-person detail: weekly volume, and account / creative-type
+  // breakdowns over the trailing window, for the person-detail tabs.
+  var perPerson = {};
+  podConfig.people.forEach(function (person) {
+    var personTrailingRows = trailingRows.filter(function (r) {
+      return r.person === person;
+    });
+    perPerson[person] = {
+      weeklyCounts: weeklyTrend[person],
+      totalTrailing: personTrailingRows.length,
+      accountBreakdown: tallyBy_(personTrailingRows, function (r) {
+        return r.account;
+      }),
+      creativeTypeBreakdown: tallyBy_(personTrailingRows, function (r) {
+        return r.creativeType || 'Unspecified';
+      })
+    };
+  });
+
   return {
     podLabel: podConfig.label,
     people: podConfig.people,
@@ -145,6 +164,7 @@ function getDashboardData() {
     weeklyTrend: weeklyTrend,
     thisWeekByPerson: thisWeek,
     lastWeekByPerson: lastWeekCounts,
+    perPerson: perPerson,
     accountBreakdown: {
       currentWeek: tallyBy_(currentWeekRows, function (r) {
         return r.account;
