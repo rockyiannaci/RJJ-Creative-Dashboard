@@ -297,6 +297,20 @@ function getDashboardData() {
     });
   });
 
+  // Monthly target progress: how many briefs each account has this
+  // calendar month against its minimum target, plus where "on pace"
+  // would be given how far through the month today is.
+  var currentMonthKey = months[months.length - 1];
+  var currentMonthRows = rows.filter(function (r) {
+    return r.monthStart === currentMonthKey;
+  });
+  var currentMonthAccountActuals = tallyBy_(currentMonthRows, function (r) {
+    return r.account;
+  });
+  var today = new Date();
+  var currentMonthDaysInMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
+  var currentMonthDayOfMonth = today.getDate();
+
   // Fixed creative-type display order, derived from the full history (not
   // just the trailing window) so it stays stable across every comparison
   // period, including "All Time".
@@ -412,6 +426,11 @@ function getDashboardData() {
     benchmarkMonthsSpanned: accountBenchmarkResult.monthsSpanned,
     benchmarkWeeksSpanned: accountBenchmarkResult.weeksSpanned,
     benchmarkStartMonth: podConfig.benchmarkStartMonth || null,
+    accountTargets: podConfig.monthlyAccountTargets || {},
+    currentMonthKey: currentMonthKey,
+    currentMonthAccountActuals: currentMonthAccountActuals,
+    currentMonthDayOfMonth: currentMonthDayOfMonth,
+    currentMonthDaysInMonth: currentMonthDaysInMonth,
     comparisonByTypeByPeriod: comparisonByTypeByPeriod,
     creativeTypeOrder: creativeTypeOrder,
     accountBreakdown: {

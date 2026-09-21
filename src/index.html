@@ -279,6 +279,41 @@
       border-radius: 999px;
     }
     .share-pct { font-weight: 700; font-variant-numeric: tabular-nums; }
+    .target-card .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      margin-bottom: 10px;
+      gap: 8px;
+    }
+    .target-card .name { font-weight: 700; font-size: 14px; }
+    .status-chip {
+      font-size: 11px;
+      font-weight: 700;
+      padding: 3px 9px;
+      border-radius: 999px;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+      white-space: nowrap;
+    }
+    .status-chip.met { background: rgba(31, 169, 113, 0.12); color: var(--up); }
+    .status-chip.pace { background: rgba(79, 91, 255, 0.12); color: var(--accent); }
+    .status-chip.behind { background: rgba(229, 72, 77, 0.12); color: var(--down); }
+    .target-card .numbers {
+      font-size: 24px;
+      font-weight: 800;
+      margin-bottom: 10px;
+      font-variant-numeric: tabular-nums;
+    }
+    .target-card .numbers .of-target { font-size: 14px; font-weight: 600; color: var(--muted); }
+    .target-progress-track {
+      background: var(--border);
+      border-radius: 999px;
+      height: 8px;
+      overflow: hidden;
+    }
+    .target-progress-fill { height: 100%; border-radius: 999px; }
+    .target-card .caption { font-size: 12px; color: var(--muted); margin-top: 8px; }
     .legend-row {
       display: flex;
       gap: 16px;
@@ -316,6 +351,11 @@
       <div class="nav-tabs" id="navTabs"></div>
 
       <div class="page-section" id="page-overview">
+        <div class="detail-section" style="margin-top: 0;">
+          <div class="section-title">Monthly Target Progress <span id="targetMonthLabel" style="font-weight: 400; color: var(--muted); font-size: 14px;"></span></div>
+          <div class="grid" id="overviewTargetCards" style="grid-template-columns: repeat(3, 1fr);"></div>
+        </div>
+
         <div class="grid" id="personCards"></div>
 
         <div class="chart-row">
@@ -469,6 +509,14 @@
             <table class="matrix-table" id="benchmarkTable"></table>
           </div>
         </div>
+
+        <div class="detail-section">
+          <div class="section-title">Monthly Target Progress <span id="compTargetMonthLabel" style="font-weight: 400; color: var(--muted); font-size: 14px;"></span></div>
+          <p class="sub" style="margin: -4px 0 12px;">Minimum creative briefs per account, per calendar month, and where we stand so far this month.</p>
+          <div class="card">
+            <table class="matrix-table" id="targetProgressTable"></table>
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -546,6 +594,78 @@
         };
         container.appendChild(btn);
       });
+    }
+
+    // ---------- Monthly Target Progress (Overview cards + Comparison table) ----------
+    function computeTargetStats(data) {
+      return data.accounts.map(function (account) {
+        var target = data.accountTargets[account] || 0;
+        var actual = data.currentMonthAccountActuals[account] || 0;
+        var expected = target * (data.currentMonthDayOfMonth / data.currentMonthDaysInMonth);
+        var pct = target ? Math.round((actual / target) * 100) : 0;
+        var remaining = Math.max(0, target - actual);
+        var status;
+        if (!target) {
+          status = { key: 'none', label: 'No Target' };
+        } else if (actual >= target) {
+          status = { key: 'met', label: 'Target Met' };
+        } else if (actual >= expected) {
+          status = { key: 'pace', label: 'On Pace' };
+        } else {
+          status = { key: 'behind', label: 'Behind Pace' };
+        }
+        return {
+          account: account,
+          label: accountLabel(data, account),
+          target: target,
+          actual: actual,
+          pct: pct,
+          remaining: remaining,
+          status: status
+        };
+      });
+    }
+
+    function renderOverviewTargetCards(data) {
+      document.getElementById('targetMonthLabel').textContent = '— ' + monthLabel(data.currentMonthKey);
+      var container = document.getElementById('overviewTargetCards');
+      container.innerHTML = '';
+      computeTargetStats(data).forEach(function (s) {
+        var card = document.createElement('div');
+        card.className = 'card target-card';
+        var barColor = s.status.key === 'met' ? 'var(--up)' : (s.status.key === 'behind' ? 'var(--down)' : 'var(--accent)');
+        var barPct = Math.min(100, s.pct);
+        card.innerHTML =
+          '<div class="header"><span class="name">' + s.label + '</span>' +
+          '<span class="status-chip ' + s.status.key + '">' + s.status.label + '</span></div>' +
+          '<div class="numbers">' + s.actual + ' <span class="of-target">/ ' + s.target + '</span></div>' +
+          '<div class="target-progress-track"><div class="target-progress-fill" style="width:' + barPct + '%; background:' + barColor + ';"></div></div>' +
+          '<div class="caption">' + (s.remaining > 0 ? s.remaining + ' more to hit target' : 'Target reached') + '</div>';
+        container.appendChild(card);
+      });
+    }
+
+    function renderComparisonTargetTable(data) {
+      document.getElementById('compTargetMonthLabel').textContent = '— ' + monthLabel(data.currentMonthKey);
+      var table = document.getElementById('targetProgressTable');
+      var html = '<thead><tr><th>Account</th><th>Target</th><th>Actual (this month)</th><th>% of Target</th><th>Remaining</th><th>Status</th></tr></thead><tbody>';
+
+      var stats = computeTargetStats(data);
+      var totalTarget = 0, totalActual = 0, totalRemaining = 0;
+      stats.forEach(function (s) {
+        totalTarget += s.target;
+        totalActual += s.actual;
+        totalRemaining += s.remaining;
+        html += '<tr><td>' + s.label + '</td><td>' + s.target + '</td><td><strong>' + s.actual + '</strong></td>' +
+          '<td>' + s.pct + '%</td><td>' + s.remaining + '</td>' +
+          '<td><span class="status-chip ' + s.status.key + '">' + s.status.label + '</span></td></tr>';
+      });
+
+      var totalPct = totalTarget ? Math.round((totalActual / totalTarget) * 100) : 0;
+      html += '</tbody><tfoot><tr><td>Total</td><td>' + totalTarget + '</td><td>' + totalActual + '</td>' +
+        '<td>' + totalPct + '%</td><td>' + totalRemaining + '</td><td></td></tr></tfoot>';
+
+      table.innerHTML = html;
     }
 
     // ---------- Person summary cards ----------
@@ -1093,6 +1213,7 @@
       );
 
       renderBenchmarkTable(data, byAccount);
+      renderComparisonTargetTable(data);
     }
 
     function fmt1_(n) {
@@ -1148,6 +1269,7 @@
       renderNavTabs();
       document.getElementById('page-' + ACTIVE_SECTION).classList.add('active');
 
+      renderOverviewTargetCards(data);
       renderPersonCards(data);
       renderTrendChart(data);
       renderBarChart('accountChart', data.accountBreakdown.currentWeek, function (k) { return accountLabel(data, k); });

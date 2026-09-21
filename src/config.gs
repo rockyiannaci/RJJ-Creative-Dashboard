@@ -53,7 +53,18 @@ var POD_CONFIGS = {
     // Floor for the "Avg / Month" and "Avg / Week" benchmarks on the
     // Performance Comparison tab: never average in data from before this
     // month, even though Asana history goes back further.
-    benchmarkStartMonth: '2026-07'
+    benchmarkStartMonth: '2026-07',
+    // Minimum creative briefs to submit per account, per calendar month.
+    // Drives the Monthly Target Progress section on Overview and the
+    // Performance Comparison tab.
+    monthlyAccountTargets: {
+      'Refloor': 60,
+      'Leaf Home Enhancements': 20,
+      'Renewal By Andersen - GW': 15,
+      'Renewal By Andersen - ENY': 10,
+      'Renewal By Andersen - QC': 3,
+      'Bath Planet': 5
+    }
   }
 };
 
