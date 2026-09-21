@@ -39,13 +39,26 @@ function readDataRows_() {
       gid: r[0],
       name: r[1],
       createdAt: r[2],
-      weekStart: r[3],
+      weekStart: normalizeDateCell_(r[3]),
       person: r[4],
       account: r[5],
       creativeType: r[6],
       completed: r[7]
     };
   });
+}
+
+/**
+ * Sheets auto-converts "YYYY-MM-DD" strings into real Date cells, so a cell
+ * read back with getValues() can come back as either a string or a Date
+ * depending on what Sheets decided at write time. Normalize both to the
+ * same "yyyy-MM-dd" string so week comparisons below are reliable.
+ */
+function normalizeDateCell_(value) {
+  if (value instanceof Date) {
+    return Utilities.formatDate(value, Session.getScriptTimeZone(), 'yyyy-MM-dd');
+  }
+  return value;
 }
 
 /**

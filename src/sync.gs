@@ -141,6 +141,10 @@ function writeDataSheet_(ss, rows) {
     sheet.getRange(2, 1, sheet.getMaxRows() - 1, sheet.getMaxColumns()).clearContent();
   }
   if (rows.length > 0) {
+    // Force the week_start column (D) to plain text so Sheets doesn't
+    // auto-convert "yyyy-MM-dd" strings into Date cells, which would make
+    // the dashboard's string-based week comparisons fail silently.
+    sheet.getRange(2, 4, rows.length, 1).setNumberFormat('@');
     sheet.getRange(2, 1, rows.length, rows[0].length).setValues(rows);
   }
 }
