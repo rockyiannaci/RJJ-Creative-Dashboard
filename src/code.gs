@@ -114,6 +114,67 @@ function getLastNWeekStarts_(n) {
   return weeks;
 }
 
+/**
+ * Number of calendar months from startMonth ("yyyy-MM") to endMonth,
+ * inclusive of both ends.
+ */
+function monthsBetweenInclusive_(startMonth, endMonth) {
+  var s = startMonth.split('-').map(Number);
+  var e = endMonth.split('-').map(Number);
+  return (e[0] - s[0]) * 12 + (e[1] - s[1]) + 1;
+}
+
+/**
+ * Number of Mon-Sun weeks from startWeekKey to endWeekKey (both
+ * "yyyy-MM-dd" Monday keys), inclusive of both ends.
+ */
+function weeksBetweenInclusive_(startWeekKey, endWeekKey) {
+  var start = new Date(startWeekKey + 'T00:00:00');
+  var end = new Date(endWeekKey + 'T00:00:00');
+  return Math.round((end - start) / (7 * 86400000)) + 1;
+}
+
+/**
+ * Per-account average pace (briefs / month, briefs / week), based on the
+ * full history rather than any trailing window or filter — a stable
+ * benchmark for "how much should we be briefing" regardless of which
+ * period is selected in the Performance Comparison tab.
+ */
+function computeAccountBenchmarks_(rows, podConfig) {
+  var benchmarks = {};
+
+  if (rows.length === 0) {
+    podConfig.accounts.forEach(function (account) {
+      benchmarks[account] = { avgPerMonth: 0, avgPerWeek: 0 };
+    });
+    return { benchmarks: benchmarks, monthsSpanned: 0, weeksSpanned: 0 };
+  }
+
+  var minMonth = rows[0].monthStart;
+  var minWeek = rows[0].weekStart;
+  rows.forEach(function (r) {
+    if (r.monthStart < minMonth) minMonth = r.monthStart;
+    if (r.weekStart < minWeek) minWeek = r.weekStart;
+  });
+
+  var todayMonth = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM');
+  var todayWeek = getWeekStart_(new Date());
+  var monthsSpanned = monthsBetweenInclusive_(minMonth, todayMonth);
+  var weeksSpanned = weeksBetweenInclusive_(minWeek, todayWeek);
+
+  podConfig.accounts.forEach(function (account) {
+    var total = rows.filter(function (r) {
+      return r.account === account;
+    }).length;
+    benchmarks[account] = {
+      avgPerMonth: monthsSpanned ? total / monthsSpanned : 0,
+      avgPerWeek: weeksSpanned ? total / weeksSpanned : 0
+    };
+  });
+
+  return { benchmarks: benchmarks, monthsSpanned: monthsSpanned, weeksSpanned: weeksSpanned };
+}
+
 function tallyBy_(rows, keyFn) {
   var result = {};
   rows.forEach(function (row) {
@@ -291,6 +352,8 @@ function getDashboardData() {
   var comparisonByAccount = buildAccountPersonMatrix_(trailingRows);
   var comparisonByType = buildTypePersonMatrix_(trailingRows);
 
+  var accountBenchmarkResult = computeAccountBenchmarks_(rows, podConfig);
+
   // Per-person detail: weekly volume, and account / creative-type
   // breakdowns over the trailing window, for the person-detail tabs.
   var perPerson = {};
@@ -333,6 +396,9 @@ function getDashboardData() {
     comparisonByType: comparisonByType,
     comparisonPeriods: comparisonPeriods,
     comparisonByAccountByPeriod: comparisonByAccountByPeriod,
+    accountBenchmarks: accountBenchmarkResult.benchmarks,
+    benchmarkMonthsSpanned: accountBenchmarkResult.monthsSpanned,
+    benchmarkWeeksSpanned: accountBenchmarkResult.weeksSpanned,
     comparisonByTypeByPeriod: comparisonByTypeByPeriod,
     creativeTypeOrder: creativeTypeOrder,
     accountBreakdown: {

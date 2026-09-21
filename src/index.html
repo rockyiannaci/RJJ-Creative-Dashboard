@@ -461,6 +461,14 @@
             <canvas id="compTypeChart"></canvas>
           </div>
         </div>
+
+        <div class="detail-section">
+          <div class="section-title">Account Volume Benchmarks</div>
+          <p class="sub" style="margin: -4px 0 12px;">Total reflects the period selected above. Averages are based on the full history, as a steady-pace benchmark for how much to brief per month and per week.</p>
+          <div class="card">
+            <table class="matrix-table" id="benchmarkTable"></table>
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -1083,6 +1091,32 @@
         'compTypeChart', data, byType, data.creativeTypeOrder,
         function (t) { return t; }
       );
+
+      renderBenchmarkTable(data, byAccount);
+    }
+
+    function fmt1_(n) {
+      return (Math.round(n * 10) / 10).toFixed(1);
+    }
+
+    function renderBenchmarkTable(data, byAccountForPeriod) {
+      var table = document.getElementById('benchmarkTable');
+      var html = '<thead><tr><th>Account</th><th>Total (' + comparisonPeriodLabel(SELECTED_COMPARISON_PERIOD) +
+        ')</th><th>Avg / Month</th><th>Avg / Week</th></tr></thead><tbody>';
+
+      var totalAll = 0, avgMonthAll = 0, avgWeekAll = 0;
+      data.accounts.forEach(function (account) {
+        var total = data.people.reduce(function (sum, p) { return sum + (byAccountForPeriod[account][p] || 0); }, 0);
+        var bench = data.accountBenchmarks[account] || { avgPerMonth: 0, avgPerWeek: 0 };
+        totalAll += total;
+        avgMonthAll += bench.avgPerMonth;
+        avgWeekAll += bench.avgPerWeek;
+        html += '<tr><td>' + accountLabel(data, account) + '</td><td><strong>' + total + '</strong></td>' +
+          '<td>' + fmt1_(bench.avgPerMonth) + '</td><td>' + fmt1_(bench.avgPerWeek) + '</td></tr>';
+      });
+
+      html += '</tbody><tfoot><tr><td>Total</td><td>' + totalAll + '</td><td>' + fmt1_(avgMonthAll) + '</td><td>' + fmt1_(avgWeekAll) + '</td></tr></tfoot>';
+      table.innerHTML = html;
     }
 
     // ---------- Top-level render ----------
