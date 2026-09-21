@@ -22,8 +22,8 @@ var POD_CONFIGS = {
       'Refloor',
       'Leaf Home Enhancements',
       'Renewal By Andersen - GW',
-      'Renewal By Andersen - QC',
       'Renewal By Andersen - ENY',
+      'Renewal By Andersen - QC',
       'Bath Planet'
     ],
     // Short labels for the dashboard UI. Filtering still matches against
