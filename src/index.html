@@ -253,6 +253,32 @@
       color: var(--muted);
       font-weight: 400;
     }
+    .stat-card .label {
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--muted);
+      font-weight: 700;
+      margin-bottom: 8px;
+    }
+    .stat-card .value {
+      font-size: 30px;
+      font-weight: 800;
+      font-variant-numeric: tabular-nums;
+    }
+    .stat-card .caption { font-size: 12px; color: var(--muted); margin-top: 4px; }
+    .share-bar-track {
+      background: var(--border);
+      border-radius: 999px;
+      height: 6px;
+      width: 100%;
+      overflow: hidden;
+    }
+    .share-bar-fill {
+      height: 100%;
+      border-radius: 999px;
+    }
+    .share-pct { font-weight: 700; font-variant-numeric: tabular-nums; }
     .legend-row {
       display: flex;
       gap: 16px;
@@ -315,6 +341,9 @@
 
       <div class="page-section" id="page-detail">
         <div class="tabs" id="personTabs"></div>
+
+        <div class="grid" id="personStatCards"></div>
+
         <div class="detail-row">
           <div class="card chart-card">
             <h2>Weekly Volume</h2>
@@ -327,6 +356,39 @@
           <div class="card chart-card">
             <h2>By Creative Type (last <span id="detailWeekCount2"></span> weeks)</h2>
             <canvas id="personTypeChart"></canvas>
+          </div>
+        </div>
+
+        <div class="card chart-card" style="margin-bottom: 16px;">
+          <h2>Monthly Volume</h2>
+          <canvas id="personMonthlyChart"></canvas>
+        </div>
+
+        <div class="detail-section">
+          <div class="section-title">Weekly Breakdown by Account</div>
+          <div class="card">
+            <table class="matrix-table" id="personWeeklyAccountTable"></table>
+          </div>
+        </div>
+
+        <div class="detail-section">
+          <div class="section-title">Monthly Breakdown by Account</div>
+          <div class="card">
+            <table class="matrix-table" id="personMonthlyAccountTable"></table>
+          </div>
+        </div>
+
+        <div class="detail-section">
+          <div class="section-title">Performance vs. Team (last <span id="detailWeekCount3"></span> weeks)</div>
+          <div class="chart-row-2">
+            <div class="card">
+              <h2>Share of Team Volume by Client</h2>
+              <table class="matrix-table" id="personShareAccountTable"></table>
+            </div>
+            <div class="card">
+              <h2>Share of Team Volume by Creative Type</h2>
+              <table class="matrix-table" id="personShareTypeTable"></table>
+            </div>
           </div>
         </div>
       </div>
@@ -568,7 +630,10 @@
       var detail = data.perPerson[person];
       document.getElementById('detailWeekCount').textContent = data.weeks.length;
       document.getElementById('detailWeekCount2').textContent = data.weeks.length;
+      document.getElementById('detailWeekCount3').textContent = data.weeks.length;
       var color = colorFor(person, data.people);
+
+      renderPersonStatCards(data, person);
 
       destroyChart('personWeekly');
       charts.personWeekly = new Chart(document.getElementById('personWeeklyChart'), {
@@ -620,6 +685,130 @@
           scales: { y: { beginAtZero: true, ticks: { precision: 0 }, grace: '12%' } }
         }
       });
+
+      renderPersonMonthlyChart(data, person);
+      renderPersonPeriodAccountTable('personWeeklyAccountTable', data, data.weeks, weekRangeLabel, data.weeklyMatrix, person);
+      renderPersonPeriodAccountTable('personMonthlyAccountTable', data, data.months, monthLabel, data.monthlyMatrix, person);
+      renderPersonShareTable('personShareAccountTable', data, data.accounts, function (a) { return accountLabel(data, a); }, data.comparisonByAccount, person);
+      renderPersonShareTable('personShareTypeTable', data, data.creativeTypeOrder, function (t) { return t; }, data.comparisonByType, person);
+    }
+
+    function statCard(label, value, caption) {
+      var card = document.createElement('div');
+      card.className = 'card stat-card';
+      card.innerHTML =
+        '<div class="label">' + label + '</div>' +
+        '<div class="value">' + value + '</div>' +
+        (caption ? '<div class="caption">' + caption + '</div>' : '');
+      return card;
+    }
+
+    function renderPersonStatCards(data, person) {
+      var detail = data.perPerson[person];
+      var thisWeek = data.thisWeekByPerson[person] || 0;
+      var lastWeek = data.lastWeekByPerson[person] || 0;
+      var avg = data.weeks.length ? (detail.totalTrailing / data.weeks.length).toFixed(1) : '0.0';
+
+      var container = document.getElementById('personStatCards');
+      container.innerHTML = '';
+      container.appendChild(statCard('This Week', thisWeek));
+      container.appendChild(statCard('Last Week', lastWeek));
+      container.appendChild(statCard('Trailing Total', detail.totalTrailing, 'last ' + data.weeks.length + ' weeks'));
+      container.appendChild(statCard('Weekly Average', avg, 'briefs / week'));
+    }
+
+    function renderPersonMonthlyChart(data, person) {
+      var color = colorFor(person, data.people);
+      destroyChart('personMonthly');
+      charts.personMonthly = new Chart(document.getElementById('personMonthlyChart'), {
+        type: 'bar',
+        data: {
+          labels: data.months.map(monthLabel),
+          datasets: [{ data: data.monthlyTrend[person], backgroundColor: color }]
+        },
+        options: {
+          responsive: true,
+          plugins: { legend: { display: false }, datalabels: BAR_DATALABELS },
+          scales: { y: { beginAtZero: true, ticks: { precision: 0 }, grace: '12%' } }
+        }
+      });
+    }
+
+    // Renders a period (week or month) x account table for a single
+    // person, using the same global weeklyMatrix/monthlyMatrix data the
+    // Weekly & Monthly Matrix tab uses, just sliced down to one person.
+    function renderPersonPeriodAccountTable(tableId, data, periods, periodLabelFn, matrixByPeriod, person) {
+      var table = document.getElementById(tableId);
+
+      var maxCell = 0;
+      periods.forEach(function (period) {
+        data.accounts.forEach(function (account) {
+          maxCell = Math.max(maxCell, matrixByPeriod[period][account][person]);
+        });
+      });
+
+      var html = '<thead><tr><th>Period</th>';
+      data.accounts.forEach(function (account) { html += '<th>' + accountLabel(data, account) + '</th>'; });
+      html += '<th>Total</th></tr></thead><tbody>';
+
+      var accountTotals = {};
+      data.accounts.forEach(function (a) { accountTotals[a] = 0; });
+
+      periods.forEach(function (period) {
+        var rowTotal = 0;
+        html += '<tr><td>' + periodLabelFn(period) + '</td>';
+        data.accounts.forEach(function (account) {
+          var val = matrixByPeriod[period][account][person];
+          rowTotal += val;
+          accountTotals[account] += val;
+          var cls = val === 0 ? 'matrix-cell-value matrix-cell-zero' : 'matrix-cell-value';
+          html += '<td><span class="' + cls + '" style="background:' + cellShade(val, maxCell) + '">' + val + '</span></td>';
+        });
+        html += '<td><strong>' + rowTotal + '</strong></td></tr>';
+      });
+
+      html += '</tbody><tfoot><tr><td>Total</td>';
+      var grandTotal = 0;
+      data.accounts.forEach(function (account) {
+        grandTotal += accountTotals[account];
+        html += '<td>' + accountTotals[account] + '</td>';
+      });
+      html += '<td>' + grandTotal + '</td></tr></tfoot>';
+
+      table.innerHTML = html;
+    }
+
+    // Renders a "this person's share of the whole pod's output" table for
+    // either accounts or creative types, from the same comparisonByAccount /
+    // comparisonByType data the Performance Comparison tab uses.
+    function renderPersonShareTable(tableId, data, categories, labelFn, comparisonMatrix, person) {
+      var table = document.getElementById(tableId);
+      var color = colorFor(person, data.people);
+
+      var html = '<thead><tr><th>' + (categories === data.accounts ? 'Account' : 'Type') +
+        '</th><th>You</th><th>Team Total</th><th>Share</th></tr></thead><tbody>';
+
+      var youTotal = 0;
+      var teamGrandTotal = 0;
+
+      categories.forEach(function (cat) {
+        var byPerson = comparisonMatrix[cat] || {};
+        var you = byPerson[person] || 0;
+        var teamTotal = data.people.reduce(function (sum, p) { return sum + (byPerson[p] || 0); }, 0);
+        var pct = teamTotal ? Math.round((you / teamTotal) * 100) : 0;
+        youTotal += you;
+        teamGrandTotal += teamTotal;
+
+        html += '<tr><td>' + labelFn(cat) + '</td><td>' + you + '</td><td>' + teamTotal + '</td>' +
+          '<td><div style="display:flex; align-items:center; gap:8px;">' +
+          '<div class="share-bar-track" style="max-width:70px;"><div class="share-bar-fill" style="width:' + pct + '%; background:' + color + ';"></div></div>' +
+          '<span class="share-pct">' + pct + '%</span></div></td></tr>';
+      });
+
+      var overallPct = teamGrandTotal ? Math.round((youTotal / teamGrandTotal) * 100) : 0;
+      html += '</tbody><tfoot><tr><td>Total</td><td>' + youTotal + '</td><td>' + teamGrandTotal + '</td><td>' + overallPct + '%</td></tr></tfoot>';
+
+      table.innerHTML = html;
     }
 
     // ---------- Weekly / Monthly account x person matrix ----------
