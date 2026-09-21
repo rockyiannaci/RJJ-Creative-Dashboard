@@ -6,6 +6,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
   <style>
     :root {
       --bg: #f5f6fa;
@@ -365,6 +366,21 @@
   </div>
 
   <script>
+    // Registered globally but off by default; each bar chart opts in via
+    // BAR_DATALABELS so the line chart (weekly trend) stays uncluttered.
+    Chart.register(ChartDataLabels);
+    Chart.defaults.set('plugins.datalabels', { display: false });
+
+    var BAR_DATALABELS = {
+      display: true,
+      anchor: 'end',
+      align: 'top',
+      offset: 2,
+      color: '#14141c',
+      font: { weight: '700', size: 11 },
+      formatter: function (value) { return value === 0 ? '' : value; }
+    };
+
     var PALETTE = ['#4f5bff', '#ff8a4f', '#2fbf8f', '#e5484d', '#a855f7'];
     var TYPE_FALLBACK_COLOR = '#9aa0ae';
 
@@ -503,7 +519,7 @@
         data: { labels: data.months.map(monthLabel), datasets: datasets },
         options: {
           responsive: true,
-          plugins: { legend: { position: 'bottom' } },
+          plugins: { legend: { position: 'bottom' }, datalabels: BAR_DATALABELS },
           scales: { y: { beginAtZero: true, ticks: { precision: 0 } } }
         }
       });
@@ -520,7 +536,7 @@
         data: { labels: labels, datasets: [{ data: values, backgroundColor: colors }] },
         options: {
           responsive: true,
-          plugins: { legend: { display: false } },
+          plugins: { legend: { display: false }, datalabels: BAR_DATALABELS },
           scales: { y: { beginAtZero: true, ticks: { precision: 0 } } }
         }
       });
@@ -563,7 +579,7 @@
         },
         options: {
           responsive: true,
-          plugins: { legend: { display: false } },
+          plugins: { legend: { display: false }, datalabels: BAR_DATALABELS },
           scales: { y: { beginAtZero: true, ticks: { precision: 0 } } }
         }
       });
@@ -582,7 +598,7 @@
         },
         options: {
           responsive: true,
-          plugins: { legend: { display: false } },
+          plugins: { legend: { display: false }, datalabels: BAR_DATALABELS },
           scales: { y: { beginAtZero: true, ticks: { precision: 0 } } }
         }
       });
@@ -600,7 +616,7 @@
         },
         options: {
           responsive: true,
-          plugins: { legend: { display: false } },
+          plugins: { legend: { display: false }, datalabels: BAR_DATALABELS },
           scales: { y: { beginAtZero: true, ticks: { precision: 0 } } }
         }
       });
@@ -709,7 +725,7 @@
         data: { labels: categoryKeys.map(categoryLabelFn), datasets: datasets },
         options: {
           responsive: true,
-          plugins: { legend: { position: 'bottom' } },
+          plugins: { legend: { position: 'bottom' }, datalabels: BAR_DATALABELS },
           scales: { y: { beginAtZero: true, ticks: { precision: 0 } } }
         }
       });
