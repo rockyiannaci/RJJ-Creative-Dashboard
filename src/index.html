@@ -18,6 +18,7 @@
       --accent-dark: #3d47d6;
       --up: #1fa971;
       --down: #e5484d;
+      --warn: #d97706;
       --shadow: 0 1px 2px rgba(16, 24, 40, 0.04), 0 1px 3px rgba(16, 24, 40, 0.07);
       --radius: 14px;
     }
@@ -307,7 +308,7 @@
       white-space: nowrap;
     }
     .status-chip.met { background: rgba(31, 169, 113, 0.12); color: var(--up); }
-    .status-chip.pace { background: rgba(79, 91, 255, 0.12); color: var(--accent); }
+    .status-chip.near { background: rgba(217, 119, 6, 0.14); color: var(--warn); }
     .status-chip.behind { background: rgba(229, 72, 77, 0.12); color: var(--down); }
     .target-card .numbers {
       font-size: 24px;
@@ -617,13 +618,18 @@
         var expected = target * (data.currentMonthDayOfMonth / data.currentMonthDaysInMonth);
         var pct = target ? Math.round((actual / target) * 100) : 0;
         var remaining = Math.max(0, target - actual);
+        // Pace ratio: how actual-so-far compares to where we'd expect to be
+        // by today, given how far through the month we are. >=100% is on
+        // pace (or target already met), 50-99% is close but slipping
+        // (yellow), under 50% is a real gap (red).
+        var paceRatio = expected > 0 ? actual / expected : (actual > 0 ? 1 : 0);
         var status;
         if (!target) {
           status = { key: 'none', label: 'No Target' };
-        } else if (actual >= target) {
-          status = { key: 'met', label: 'Target Met' };
-        } else if (actual >= expected) {
-          status = { key: 'pace', label: 'On Pace' };
+        } else if (actual >= target || paceRatio >= 1) {
+          status = { key: 'met', label: actual >= target ? 'Target Met' : 'On Pace' };
+        } else if (paceRatio >= 0.5) {
+          status = { key: 'near', label: 'Near Pace' };
         } else {
           status = { key: 'behind', label: 'Behind Pace' };
         }
@@ -646,7 +652,8 @@
       computeTargetStats(data).forEach(function (s) {
         var card = document.createElement('div');
         card.className = 'card target-card';
-        var barColor = s.status.key === 'met' ? 'var(--up)' : (s.status.key === 'behind' ? 'var(--down)' : 'var(--accent)');
+        var barColor = s.status.key === 'met' ? 'var(--up)' :
+          (s.status.key === 'near' ? 'var(--warn)' : (s.status.key === 'none' ? 'var(--muted)' : 'var(--down)'));
         var barPct = Math.min(100, s.pct);
         card.innerHTML =
           '<div class="header"><span class="name">' + s.label + '</span>' +
