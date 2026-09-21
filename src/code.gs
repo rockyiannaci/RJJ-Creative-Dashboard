@@ -134,6 +134,27 @@ function getDashboardData() {
     }).length;
   });
 
+  // Per-week account x person matrix, for the weekly-breakdown tabs:
+  // for a given week, how many briefs did each person submit for each
+  // account, so a mismatch between plan and output per account is visible.
+  var weeklyMatrix = {};
+  weeks.forEach(function (week) {
+    var weekRows = rows.filter(function (r) {
+      return r.weekStart === week;
+    });
+    var matrix = {};
+    podConfig.accounts.forEach(function (account) {
+      var byPerson = {};
+      podConfig.people.forEach(function (person) {
+        byPerson[person] = weekRows.filter(function (r) {
+          return r.account === account && r.person === person;
+        }).length;
+      });
+      matrix[account] = byPerson;
+    });
+    weeklyMatrix[week] = matrix;
+  });
+
   // Per-person detail: weekly volume, and account / creative-type
   // breakdowns over the trailing window, for the person-detail tabs.
   var perPerson = {};
@@ -165,6 +186,7 @@ function getDashboardData() {
     thisWeekByPerson: thisWeek,
     lastWeekByPerson: lastWeekCounts,
     perPerson: perPerson,
+    weeklyMatrix: weeklyMatrix,
     accountBreakdown: {
       currentWeek: tallyBy_(currentWeekRows, function (r) {
         return r.account;

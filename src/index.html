@@ -112,6 +112,62 @@
       .detail-row { grid-template-columns: 1fr; }
     }
     .detail-row canvas { max-height: 260px; }
+    .week-tabs {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 16px;
+      overflow-x: auto;
+      padding-bottom: 4px;
+    }
+    .week-tab-btn {
+      border: 1px solid var(--border);
+      background: var(--card);
+      color: var(--text);
+      padding: 8px 14px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      white-space: nowrap;
+      flex: 0 0 auto;
+    }
+    .week-tab-btn.active {
+      background: var(--accent);
+      color: white;
+      border-color: transparent;
+    }
+    .matrix-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 14px;
+    }
+    .matrix-table th, .matrix-table td {
+      padding: 10px 12px;
+      text-align: center;
+      border-bottom: 1px solid var(--border);
+    }
+    .matrix-table th:first-child, .matrix-table td:first-child {
+      text-align: left;
+      font-weight: 600;
+    }
+    .matrix-table thead th {
+      color: var(--muted);
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+      font-weight: 600;
+    }
+    .matrix-table tfoot td {
+      font-weight: 700;
+      border-top: 2px solid var(--border);
+      border-bottom: none;
+    }
+    .matrix-cell-value {
+      display: inline-block;
+      min-width: 28px;
+      padding: 4px 6px;
+      border-radius: 6px;
+    }
     #loading, #error { color: var(--muted); font-size: 14px; padding: 40px 0; text-align: center; }
     #error { color: var(--down); }
   </style>
@@ -161,6 +217,14 @@
           <h2>By Creative Type (last <span id="detailWeekCount2"></span> weeks)</h2>
           <canvas id="personTypeChart"></canvas>
         </div>
+      </div>
+    </div>
+
+    <div class="detail-section">
+      <h2 style="margin-bottom: 12px;">Weekly Breakdown by Account &amp; Media Buyer</h2>
+      <div class="week-tabs" id="weekTabs"></div>
+      <div class="card">
+        <table class="matrix-table" id="matrixTable"></table>
       </div>
     </div>
   </div>
@@ -347,6 +411,83 @@
       });
     }
 
+    var SELECTED_WEEK = null;
+
+    function weekRangeLabel(weekStart) {
+      var start = new Date(weekStart + 'T00:00:00');
+      var end = new Date(start);
+      end.setDate(end.getDate() + 6);
+      var fmt = function (d) { return (d.getMonth() + 1) + '/' + d.getDate(); };
+      return fmt(start) + '–' + fmt(end);
+    }
+
+    function renderWeekTabs(data) {
+      var container = document.getElementById('weekTabs');
+      container.innerHTML = '';
+      data.weeks.forEach(function (week) {
+        var btn = document.createElement('button');
+        btn.className = 'week-tab-btn' + (week === SELECTED_WEEK ? ' active' : '');
+        btn.textContent = weekRangeLabel(week);
+        btn.onclick = function () {
+          SELECTED_WEEK = week;
+          renderWeekTabs(data);
+          renderMatrixTable(data, week);
+        };
+        container.appendChild(btn);
+      });
+      container.scrollLeft = container.scrollWidth;
+    }
+
+    function cellShade(value, max) {
+      if (!max || value === 0) return 'transparent';
+      var intensity = 0.12 + 0.55 * (value / max);
+      return 'rgba(79, 91, 255, ' + intensity.toFixed(2) + ')';
+    }
+
+    function renderMatrixTable(data, week) {
+      var matrix = data.weeklyMatrix[week];
+      var table = document.getElementById('matrixTable');
+
+      var maxCell = 0;
+      data.accounts.forEach(function (account) {
+        data.people.forEach(function (person) {
+          maxCell = Math.max(maxCell, matrix[account][person]);
+        });
+      });
+
+      var html = '<thead><tr><th>Account</th>';
+      data.people.forEach(function (person) {
+        html += '<th>' + person + '</th>';
+      });
+      html += '<th>Total</th></tr></thead><tbody>';
+
+      var personTotals = {};
+      data.people.forEach(function (p) { personTotals[p] = 0; });
+
+      data.accounts.forEach(function (account) {
+        var rowTotal = 0;
+        html += '<tr><td>' + account + '</td>';
+        data.people.forEach(function (person) {
+          var val = matrix[account][person];
+          rowTotal += val;
+          personTotals[person] += val;
+          html += '<td><span class="matrix-cell-value" style="background:' +
+            cellShade(val, maxCell) + '">' + val + '</span></td>';
+        });
+        html += '<td><strong>' + rowTotal + '</strong></td></tr>';
+      });
+
+      html += '</tbody><tfoot><tr><td>Total</td>';
+      var grandTotal = 0;
+      data.people.forEach(function (person) {
+        grandTotal += personTotals[person];
+        html += '<td>' + personTotals[person] + '</td>';
+      });
+      html += '<td>' + grandTotal + '</td></tr></tfoot>';
+
+      table.innerHTML = html;
+    }
+
     function renderDashboard(data) {
       document.getElementById('loading').style.display = 'none';
       document.getElementById('dashboard').style.display = 'block';
@@ -358,6 +499,9 @@
       if (!SELECTED_PERSON || data.people.indexOf(SELECTED_PERSON) === -1) {
         SELECTED_PERSON = data.people[0];
       }
+      if (!SELECTED_WEEK || data.weeks.indexOf(SELECTED_WEEK) === -1) {
+        SELECTED_WEEK = data.currentWeek;
+      }
 
       renderPersonCards(data);
       renderTrendChart(data);
@@ -365,6 +509,8 @@
       renderBarChart('typeChart', data.creativeTypeBreakdown.currentWeek);
       renderPersonTabs(data);
       renderPersonDetail(data, SELECTED_PERSON);
+      renderWeekTabs(data);
+      renderMatrixTable(data, SELECTED_WEEK);
     }
 
     function loadDashboard() {
