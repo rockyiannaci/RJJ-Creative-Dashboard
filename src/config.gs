@@ -49,7 +49,11 @@ var POD_CONFIGS = {
       'Iteration': '#8bc34a',
       'Raw Asset': '#b39ddb',
       'Net New Concept': '#ff9800'
-    }
+    },
+    // Floor for the "Avg / Month" and "Avg / Week" benchmarks on the
+    // Performance Comparison tab: never average in data from before this
+    // month, even though Asana history goes back further.
+    benchmarkStartMonth: '2026-07'
   }
 };
 

@@ -464,7 +464,7 @@
 
         <div class="detail-section">
           <div class="section-title">Account Volume Benchmarks</div>
-          <p class="sub" style="margin: -4px 0 12px;">Total reflects the period selected above. Averages are based on the full history, as a steady-pace benchmark for how much to brief per month and per week.</p>
+          <p class="sub" id="benchmarkSub" style="margin: -4px 0 12px;">Total reflects the period selected above.</p>
           <div class="card">
             <table class="matrix-table" id="benchmarkTable"></table>
           </div>
@@ -1100,6 +1100,11 @@
     }
 
     function renderBenchmarkTable(data, byAccountForPeriod) {
+      document.getElementById('benchmarkSub').textContent = data.benchmarkStartMonth
+        ? 'Total reflects the period selected above. Averages are steady-pace benchmarks based on ' +
+          monthLabel(data.benchmarkStartMonth) + ' onward.'
+        : 'Total reflects the period selected above. Averages are based on the full history.';
+
       var table = document.getElementById('benchmarkTable');
       var html = '<thead><tr><th>Account</th><th>Total (' + comparisonPeriodLabel(SELECTED_COMPARISON_PERIOD) +
         ')</th><th>Avg / Month</th><th>Avg / Week</th></tr></thead><tbody>';

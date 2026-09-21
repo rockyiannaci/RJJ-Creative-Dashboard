@@ -142,20 +142,32 @@ function weeksBetweenInclusive_(startWeekKey, endWeekKey) {
  */
 function computeAccountBenchmarks_(rows, podConfig) {
   var benchmarks = {};
+  var startFloor = podConfig.benchmarkStartMonth;
 
-  if (rows.length === 0) {
+  // Never average in data from before the configured floor month, even
+  // though the full Asana history (and the rest of the dashboard) goes
+  // back further.
+  var benchmarkRows = startFloor
+    ? rows.filter(function (r) { return r.monthStart >= startFloor; })
+    : rows;
+
+  if (benchmarkRows.length === 0 && !startFloor) {
     podConfig.accounts.forEach(function (account) {
       benchmarks[account] = { avgPerMonth: 0, avgPerWeek: 0 };
     });
     return { benchmarks: benchmarks, monthsSpanned: 0, weeksSpanned: 0 };
   }
 
-  var minMonth = rows[0].monthStart;
-  var minWeek = rows[0].weekStart;
-  rows.forEach(function (r) {
-    if (r.monthStart < minMonth) minMonth = r.monthStart;
-    if (r.weekStart < minWeek) minWeek = r.weekStart;
-  });
+  var minMonth = startFloor || benchmarkRows[0].monthStart;
+  var minWeek = startFloor
+    ? getWeekStart_(new Date(startFloor + '-01T00:00:00'))
+    : benchmarkRows[0].weekStart;
+  if (!startFloor) {
+    benchmarkRows.forEach(function (r) {
+      if (r.monthStart < minMonth) minMonth = r.monthStart;
+      if (r.weekStart < minWeek) minWeek = r.weekStart;
+    });
+  }
 
   var todayMonth = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM');
   var todayWeek = getWeekStart_(new Date());
@@ -163,7 +175,7 @@ function computeAccountBenchmarks_(rows, podConfig) {
   var weeksSpanned = weeksBetweenInclusive_(minWeek, todayWeek);
 
   podConfig.accounts.forEach(function (account) {
-    var total = rows.filter(function (r) {
+    var total = benchmarkRows.filter(function (r) {
       return r.account === account;
     }).length;
     benchmarks[account] = {
@@ -399,6 +411,7 @@ function getDashboardData() {
     accountBenchmarks: accountBenchmarkResult.benchmarks,
     benchmarkMonthsSpanned: accountBenchmarkResult.monthsSpanned,
     benchmarkWeeksSpanned: accountBenchmarkResult.weeksSpanned,
+    benchmarkStartMonth: podConfig.benchmarkStartMonth || null,
     comparisonByTypeByPeriod: comparisonByTypeByPeriod,
     creativeTypeOrder: creativeTypeOrder,
     accountBreakdown: {
