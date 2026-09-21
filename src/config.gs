@@ -23,7 +23,8 @@ var POD_CONFIGS = {
       'Leaf Home Enhancements',
       'Renewal By Andersen - GW',
       'Renewal By Andersen - QC',
-      'Renewal By Andersen - ENY'
+      'Renewal By Andersen - ENY',
+      'Bath Planet'
     ],
     // Short labels for the dashboard UI. Filtering still matches against
     // the real Asana "Client Name" values above; this only changes what's
@@ -33,7 +34,8 @@ var POD_CONFIGS = {
       'Leaf Home Enhancements': 'Leaf Home',
       'Renewal By Andersen - GW': 'RBA GW',
       'Renewal By Andersen - QC': 'RBA QC',
-      'Renewal By Andersen - ENY': 'RBA E NY'
+      'Renewal By Andersen - ENY': 'RBA E NY',
+      'Bath Planet': 'Bath Planet'
     },
     // Custom field names on the Asana task, as they appear in Asana.
     clientNameFieldName: 'Client Name',
