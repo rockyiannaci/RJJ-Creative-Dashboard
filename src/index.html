@@ -135,8 +135,18 @@
       font-weight: 700;
     }
     .section-title { font-size: 17px; text-transform: none; letter-spacing: -0.01em; color: var(--text); margin-bottom: 14px; }
-    .person-card .name { font-size: 15px; font-weight: 700; margin-bottom: 8px; }
-    .person-card .count { font-size: 34px; font-weight: 800; margin: 2px 0; font-variant-numeric: tabular-nums; }
+    .person-card {
+      border-top: 4px solid var(--person-color, var(--accent));
+    }
+    .person-card .name { font-size: 15px; font-weight: 700; margin-bottom: 8px; display: flex; align-items: center; gap: 8px; }
+    .person-card .name .dot {
+      display: inline-block;
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: var(--person-color, var(--accent));
+    }
+    .person-card .count { font-size: 38px; font-weight: 800; margin: 2px 0; font-variant-numeric: tabular-nums; }
     .person-card .rows { display: flex; justify-content: space-between; font-size: 13px; color: var(--muted); margin-top: 6px; }
     .person-card .delta { font-weight: 700; font-variant-numeric: tabular-nums; }
     .delta.up { color: var(--up); }
@@ -356,7 +366,10 @@
           <div class="grid" id="overviewTargetCards" style="grid-template-columns: repeat(3, 1fr);"></div>
         </div>
 
-        <div class="grid" id="personCards"></div>
+        <div class="detail-section">
+          <div class="section-title">This Week by Media Buyer</div>
+          <div class="grid" id="personCards"></div>
+        </div>
 
         <div class="chart-row">
           <div class="card chart-card">
@@ -678,8 +691,9 @@
         var delta = fmtDelta(thisWeek - lastWeek);
         var card = document.createElement('div');
         card.className = 'card person-card';
+        card.style.setProperty('--person-color', colorFor(person, data.people));
         card.innerHTML =
-          '<div class="name">' + person + '</div>' +
+          '<div class="name"><span class="dot"></span>' + person + '</div>' +
           '<div class="count">' + thisWeek + '</div>' +
           '<div class="rows">' +
           '<span>Last week: ' + lastWeek + '</span>' +
