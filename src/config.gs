@@ -14,9 +14,9 @@ var POD_CONFIGS = {
     dashboardTitle: 'RJJ Creative Brief Dashboard',
     asanaProjectGid: '1202836664104107', // CDM: Creative Requests
     people: [
-      'Rocky Iannaci',
       'Julian DiVito',
-      'Jay Jeong'
+      'Jay Jeong',
+      'Rocky Iannaci'
     ],
     accounts: [
       'Refloor',
