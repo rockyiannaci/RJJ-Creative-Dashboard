@@ -412,7 +412,8 @@
       </div>
 
       <div class="page-section" id="page-comparison">
-        <p class="sub" style="margin: -4px 0 16px;">Side-by-side comparison across all media buyers, over the trailing window shown above.</p>
+        <p class="sub" id="comparisonSub" style="margin: -4px 0 16px;">Side-by-side comparison across all media buyers.</p>
+        <div class="week-tabs" id="comparisonTabs"></div>
         <div class="chart-row-2">
           <div class="card chart-card">
             <h2>Creative Volume by Client</h2>
@@ -920,13 +921,30 @@
       });
     }
 
+    var SELECTED_COMPARISON_PERIOD = null;
+
+    function comparisonPeriodLabel(period) {
+      return period === 'all' ? 'All Time' : monthLabel(period);
+    }
+
     function renderComparisonSection(data) {
+      renderPeriodTabs('comparisonTabs', data.comparisonPeriods, SELECTED_COMPARISON_PERIOD, comparisonPeriodLabel, function (period) {
+        SELECTED_COMPARISON_PERIOD = period;
+        renderComparisonSection(data);
+      });
+
+      document.getElementById('comparisonSub').textContent =
+        'Side-by-side comparison across all media buyers — ' + comparisonPeriodLabel(SELECTED_COMPARISON_PERIOD) + '.';
+
+      var byAccount = data.comparisonByAccountByPeriod[SELECTED_COMPARISON_PERIOD];
+      var byType = data.comparisonByTypeByPeriod[SELECTED_COMPARISON_PERIOD];
+
       renderGroupedComparisonChart(
-        'compAccountChart', data, data.comparisonByAccount, data.accounts,
+        'compAccountChart', data, byAccount, data.accounts,
         function (a) { return accountLabel(data, a); }
       );
       renderGroupedComparisonChart(
-        'compTypeChart', data, data.comparisonByType, data.creativeTypeOrder,
+        'compTypeChart', data, byType, data.creativeTypeOrder,
         function (t) { return t; }
       );
     }
@@ -947,6 +965,9 @@
       }
       if (!SELECTED_MONTH || data.months.indexOf(SELECTED_MONTH) === -1) {
         SELECTED_MONTH = data.months[data.months.length - 1];
+      }
+      if (!SELECTED_COMPARISON_PERIOD || data.comparisonPeriods.indexOf(SELECTED_COMPARISON_PERIOD) === -1) {
+        SELECTED_COMPARISON_PERIOD = 'all';
       }
 
       renderNavTabs();

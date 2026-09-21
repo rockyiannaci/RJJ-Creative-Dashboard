@@ -214,28 +214,17 @@ function getDashboardData() {
     });
   });
 
-  // Cross-media-buyer comparison, over the trailing window: how much did
-  // each person produce per account, and per creative type, side by side
-  // (rather than one person at a time as in the per-person detail tabs).
-  var comparisonByAccount = {};
-  podConfig.accounts.forEach(function (account) {
-    var byPerson = {};
-    podConfig.people.forEach(function (person) {
-      byPerson[person] = trailingRows.filter(function (r) {
-        return r.account === account && r.person === person;
-      }).length;
-    });
-    comparisonByAccount[account] = byPerson;
-  });
-
-  var creativeTypesSeen = {};
-  trailingRows.forEach(function (r) {
-    creativeTypesSeen[r.creativeType || 'Unspecified'] = true;
+  // Fixed creative-type display order, derived from the full history (not
+  // just the trailing window) so it stays stable across every comparison
+  // period, including "All Time".
+  var creativeTypesSeenAll = {};
+  rows.forEach(function (r) {
+    creativeTypesSeenAll[r.creativeType || 'Unspecified'] = true;
   });
   var creativeTypeOrder = (podConfig.creativeTypeOrder || []).filter(function (t) {
-    return creativeTypesSeen[t];
+    return creativeTypesSeenAll[t];
   });
-  Object.keys(creativeTypesSeen)
+  Object.keys(creativeTypesSeenAll)
     .sort()
     .forEach(function (t) {
       if (creativeTypeOrder.indexOf(t) === -1) {
@@ -243,16 +232,54 @@ function getDashboardData() {
       }
     });
 
-  var comparisonByType = {};
-  creativeTypeOrder.forEach(function (type) {
-    var byPerson = {};
-    podConfig.people.forEach(function (person) {
-      byPerson[person] = trailingRows.filter(function (r) {
-        return (r.creativeType || 'Unspecified') === type && r.person === person;
-      }).length;
+  function buildAccountPersonMatrix_(rowsSubset) {
+    var matrix = {};
+    podConfig.accounts.forEach(function (account) {
+      var byPerson = {};
+      podConfig.people.forEach(function (person) {
+        byPerson[person] = rowsSubset.filter(function (r) {
+          return r.account === account && r.person === person;
+        }).length;
+      });
+      matrix[account] = byPerson;
     });
-    comparisonByType[type] = byPerson;
+    return matrix;
+  }
+
+  function buildTypePersonMatrix_(rowsSubset) {
+    var matrix = {};
+    creativeTypeOrder.forEach(function (type) {
+      var byPerson = {};
+      podConfig.people.forEach(function (person) {
+        byPerson[person] = rowsSubset.filter(function (r) {
+          return (r.creativeType || 'Unspecified') === type && r.person === person;
+        }).length;
+      });
+      matrix[type] = byPerson;
+    });
+    return matrix;
+  }
+
+  // Cross-media-buyer comparison: how much did each person produce per
+  // account, and per creative type, side by side (rather than one person
+  // at a time as in the per-person detail tabs). Computed once for "all"
+  // (the full history) and once per trailing month, so the Performance
+  // Comparison tab can filter between All Time and any given month.
+  var comparisonPeriods = ['all'].concat(months);
+  var comparisonByAccountByPeriod = {};
+  var comparisonByTypeByPeriod = {};
+  comparisonPeriods.forEach(function (period) {
+    var periodRows = period === 'all'
+      ? rows
+      : rows.filter(function (r) { return r.monthStart === period; });
+    comparisonByAccountByPeriod[period] = buildAccountPersonMatrix_(periodRows);
+    comparisonByTypeByPeriod[period] = buildTypePersonMatrix_(periodRows);
   });
+
+  // Also kept as the trailing-window-only versions, used by the per-person
+  // "Performance vs. Team" tables on the Media Buyer Detail tab.
+  var comparisonByAccount = buildAccountPersonMatrix_(trailingRows);
+  var comparisonByType = buildTypePersonMatrix_(trailingRows);
 
   // Per-person detail: weekly volume, and account / creative-type
   // breakdowns over the trailing window, for the person-detail tabs.
@@ -294,6 +321,9 @@ function getDashboardData() {
     monthlyMatrix: monthlyMatrix,
     comparisonByAccount: comparisonByAccount,
     comparisonByType: comparisonByType,
+    comparisonPeriods: comparisonPeriods,
+    comparisonByAccountByPeriod: comparisonByAccountByPeriod,
+    comparisonByTypeByPeriod: comparisonByTypeByPeriod,
     creativeTypeOrder: creativeTypeOrder,
     accountBreakdown: {
       currentWeek: tallyBy_(currentWeekRows, function (r) {
