@@ -11,6 +11,7 @@ var POD_CONFIGS = {
   B3: {
     key: 'B3',
     label: 'B3 (RJJ)',
+    dashboardTitle: 'RJJ Creative Brief Dashboard',
     asanaProjectGid: '1202836664104107', // CDM: Creative Requests
     people: [
       'Rocky Iannaci',
@@ -36,7 +37,17 @@ var POD_CONFIGS = {
     },
     // Custom field names on the Asana task, as they appear in Asana.
     clientNameFieldName: 'Client Name',
-    creativeTypeFieldName: 'Creative Request Type'
+    creativeTypeFieldName: 'Creative Request Type',
+    // Fixed display order + colors for the known creative types, matching
+    // their Asana tag colors. Any value not listed here (a new type added
+    // later, or a blank field) still renders, just in a fallback color at
+    // the end of the legend instead of being dropped.
+    creativeTypeOrder: ['Iteration', 'Raw Asset', 'Net New Concept'],
+    creativeTypeColors: {
+      'Iteration': '#8bc34a',
+      'Raw Asset': '#b39ddb',
+      'Net New Concept': '#ff9800'
+    }
   }
 };
 

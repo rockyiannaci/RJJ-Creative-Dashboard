@@ -8,11 +8,13 @@ var TRAILING_WEEKS = 10;
 var TRAILING_MONTHS = 6;
 
 function doGet() {
+  var podConfig = getActivePodConfig();
   var template = HtmlService.createTemplateFromFile('index');
-  template.podLabel = getActivePodConfig().label;
+  template.podLabel = podConfig.label;
+  template.dashboardTitle = podConfig.dashboardTitle || podConfig.label;
   return template
     .evaluate()
-    .setTitle('Creative Brief Dashboard - ' + getActivePodConfig().label)
+    .setTitle(template.dashboardTitle)
     .addMetaTag('viewport', 'width=device-width, initial-scale=1');
 }
 
@@ -201,6 +203,57 @@ function getDashboardData() {
     monthlyMatrix[month] = matrix;
   });
 
+  // Monthly trend: one series per person, one count per month, for the
+  // "total briefs per media buyer per month" bar chart.
+  var monthlyTrend = {};
+  podConfig.people.forEach(function (person) {
+    monthlyTrend[person] = months.map(function (month) {
+      return rows.filter(function (r) {
+        return r.person === person && r.monthStart === month;
+      }).length;
+    });
+  });
+
+  // Cross-media-buyer comparison, over the trailing window: how much did
+  // each person produce per account, and per creative type, side by side
+  // (rather than one person at a time as in the per-person detail tabs).
+  var comparisonByAccount = {};
+  podConfig.accounts.forEach(function (account) {
+    var byPerson = {};
+    podConfig.people.forEach(function (person) {
+      byPerson[person] = trailingRows.filter(function (r) {
+        return r.account === account && r.person === person;
+      }).length;
+    });
+    comparisonByAccount[account] = byPerson;
+  });
+
+  var creativeTypesSeen = {};
+  trailingRows.forEach(function (r) {
+    creativeTypesSeen[r.creativeType || 'Unspecified'] = true;
+  });
+  var creativeTypeOrder = (podConfig.creativeTypeOrder || []).filter(function (t) {
+    return creativeTypesSeen[t];
+  });
+  Object.keys(creativeTypesSeen)
+    .sort()
+    .forEach(function (t) {
+      if (creativeTypeOrder.indexOf(t) === -1) {
+        creativeTypeOrder.push(t);
+      }
+    });
+
+  var comparisonByType = {};
+  creativeTypeOrder.forEach(function (type) {
+    var byPerson = {};
+    podConfig.people.forEach(function (person) {
+      byPerson[person] = trailingRows.filter(function (r) {
+        return (r.creativeType || 'Unspecified') === type && r.person === person;
+      }).length;
+    });
+    comparisonByType[type] = byPerson;
+  });
+
   // Per-person detail: weekly volume, and account / creative-type
   // breakdowns over the trailing window, for the person-detail tabs.
   var perPerson = {};
@@ -222,20 +275,26 @@ function getDashboardData() {
 
   return {
     podLabel: podConfig.label,
+    dashboardTitle: podConfig.dashboardTitle || podConfig.label,
     people: podConfig.people,
     accounts: podConfig.accounts,
     accountDisplayNames: podConfig.accountDisplayNames || {},
+    creativeTypeColors: podConfig.creativeTypeColors || {},
     weeks: weeks,
     months: months,
     currentWeek: currentWeek,
     lastWeek: lastWeek,
     lastSyncAt: PropertiesService.getScriptProperties().getProperty('LAST_SYNC_AT') || null,
     weeklyTrend: weeklyTrend,
+    monthlyTrend: monthlyTrend,
     thisWeekByPerson: thisWeek,
     lastWeekByPerson: lastWeekCounts,
     perPerson: perPerson,
     weeklyMatrix: weeklyMatrix,
     monthlyMatrix: monthlyMatrix,
+    comparisonByAccount: comparisonByAccount,
+    comparisonByType: comparisonByType,
+    creativeTypeOrder: creativeTypeOrder,
     accountBreakdown: {
       currentWeek: tallyBy_(currentWeekRows, function (r) {
         return r.account;

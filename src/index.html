@@ -3,49 +3,112 @@
 <head>
   <base target="_top">
   <meta charset="utf-8">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
   <style>
     :root {
-      --bg: #f7f7f9;
+      --bg: #f5f6fa;
       --card: #ffffff;
-      --border: #e4e4e9;
-      --text: #1c1c22;
-      --muted: #6b6b76;
+      --border: #e7e8ee;
+      --text: #14141c;
+      --muted: #6b6b78;
       --accent: #4f5bff;
-      --rocky: #4f5bff;
-      --julian: #ff8a4f;
-      --jay: #2fbf8f;
-      --up: #2fbf8f;
+      --accent-dark: #3d47d6;
+      --up: #1fa971;
       --down: #e5484d;
+      --shadow: 0 1px 2px rgba(16, 24, 40, 0.04), 0 1px 3px rgba(16, 24, 40, 0.07);
+      --radius: 14px;
     }
     * { box-sizing: border-box; }
     body {
       margin: 0;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
       background: var(--bg);
       color: var(--text);
-      padding: 24px;
+      -webkit-font-smoothing: antialiased;
+    }
+    .page-wrap {
+      max-width: 1360px;
+      margin: 0 auto;
+      padding: 28px 28px 64px;
     }
     header {
       display: flex;
       justify-content: space-between;
-      align-items: center;
+      align-items: flex-start;
       margin-bottom: 20px;
       flex-wrap: wrap;
-      gap: 12px;
+      gap: 16px;
     }
-    h1 { font-size: 20px; margin: 0; }
-    .sub { color: var(--muted); font-size: 13px; margin-top: 4px; }
+    .title-block h1 {
+      font-size: 24px;
+      font-weight: 800;
+      margin: 0 0 4px 0;
+      letter-spacing: -0.01em;
+    }
+    .pod-badge {
+      display: inline-block;
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: var(--accent);
+      background: rgba(79, 91, 255, 0.1);
+      padding: 3px 8px;
+      border-radius: 6px;
+      margin-left: 8px;
+      vertical-align: middle;
+    }
+    .sub { color: var(--muted); font-size: 13px; margin-top: 2px; }
     button#refreshBtn {
       background: var(--accent);
       color: white;
       border: none;
-      padding: 10px 18px;
-      border-radius: 8px;
+      padding: 11px 20px;
+      border-radius: 10px;
       font-size: 14px;
+      font-weight: 600;
+      font-family: inherit;
       cursor: pointer;
+      box-shadow: var(--shadow);
+      transition: background 0.15s ease, transform 0.1s ease;
     }
-    button#refreshBtn:disabled { opacity: 0.6; cursor: default; }
+    button#refreshBtn:hover:not(:disabled) { background: var(--accent-dark); }
+    button#refreshBtn:active:not(:disabled) { transform: scale(0.98); }
+    button#refreshBtn:disabled { opacity: 0.55; cursor: default; }
+
+    .nav-tabs {
+      display: flex;
+      gap: 4px;
+      background: #eceef4;
+      border-radius: 12px;
+      padding: 4px;
+      margin-bottom: 24px;
+      width: fit-content;
+      max-width: 100%;
+      overflow-x: auto;
+    }
+    .nav-tab-btn {
+      border: none;
+      background: transparent;
+      color: var(--muted);
+      padding: 9px 18px;
+      border-radius: 9px;
+      font-size: 14px;
+      font-weight: 600;
+      font-family: inherit;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    .nav-tab-btn.active {
+      background: var(--card);
+      color: var(--text);
+      box-shadow: var(--shadow);
+    }
+    .page-section { display: none; }
+    .page-section.active { display: block; }
+
     .grid {
       display: grid;
       grid-template-columns: repeat(3, 1fr);
@@ -58,19 +121,23 @@
     .card {
       background: var(--card);
       border: 1px solid var(--border);
-      border-radius: 12px;
-      padding: 16px 18px;
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 18px 20px;
     }
-    .card h2 {
-      font-size: 13px;
+    .card h2, .section-title {
+      font-size: 12px;
       text-transform: uppercase;
-      letter-spacing: 0.04em;
+      letter-spacing: 0.05em;
       color: var(--muted);
-      margin: 0 0 12px 0;
+      margin: 0 0 14px 0;
+      font-weight: 700;
     }
-    .person-card .count { font-size: 32px; font-weight: 700; margin: 2px 0; }
-    .person-card .rows { display: flex; justify-content: space-between; font-size: 13px; color: var(--muted); }
-    .person-card .delta { font-weight: 600; }
+    .section-title { font-size: 17px; text-transform: none; letter-spacing: -0.01em; color: var(--text); margin-bottom: 14px; }
+    .person-card .name { font-size: 15px; font-weight: 700; margin-bottom: 8px; }
+    .person-card .count { font-size: 34px; font-weight: 800; margin: 2px 0; font-variant-numeric: tabular-nums; }
+    .person-card .rows { display: flex; justify-content: space-between; font-size: 13px; color: var(--muted); margin-top: 6px; }
+    .person-card .delta { font-weight: 700; font-variant-numeric: tabular-nums; }
     .delta.up { color: var(--up); }
     .delta.down { color: var(--down); }
     .delta.flat { color: var(--muted); }
@@ -78,25 +145,34 @@
       display: grid;
       grid-template-columns: 2fr 1fr 1fr;
       gap: 16px;
+      margin-bottom: 16px;
+    }
+    .chart-row-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      margin-bottom: 16px;
     }
     @media (max-width: 1100px) {
-      .chart-row { grid-template-columns: 1fr; }
+      .chart-row, .chart-row-2 { grid-template-columns: 1fr; }
     }
     .chart-card canvas { max-height: 280px; }
-    .detail-section { margin-top: 24px; }
+    .detail-section { margin-top: 24px; margin-bottom: 8px; }
     .tabs {
       display: flex;
       gap: 8px;
       margin-bottom: 16px;
+      flex-wrap: wrap;
     }
     .tab-btn {
       border: 1px solid var(--border);
       background: var(--card);
       color: var(--text);
-      padding: 8px 16px;
+      padding: 9px 18px;
       border-radius: 999px;
       font-size: 14px;
       font-weight: 600;
+      font-family: inherit;
       cursor: pointer;
     }
     .tab-btn.active {
@@ -123,10 +199,11 @@
       border: 1px solid var(--border);
       background: var(--card);
       color: var(--text);
-      padding: 8px 14px;
-      border-radius: 8px;
+      padding: 9px 16px;
+      border-radius: 9px;
       font-size: 13px;
       font-weight: 600;
+      font-family: inherit;
       cursor: pointer;
       white-space: nowrap;
       flex: 0 0 auto;
@@ -142,7 +219,7 @@
       font-size: 14px;
     }
     .matrix-table th, .matrix-table td {
-      padding: 10px 12px;
+      padding: 11px 12px;
       text-align: center;
       border-bottom: 1px solid var(--border);
     }
@@ -155,7 +232,7 @@
       font-size: 12px;
       text-transform: uppercase;
       letter-spacing: 0.03em;
-      font-weight: 600;
+      font-weight: 700;
     }
     .matrix-table tfoot td {
       font-weight: 700;
@@ -169,87 +246,149 @@
       border-radius: 6px;
       font-weight: 700;
       font-size: 14px;
+      font-variant-numeric: tabular-nums;
     }
     .matrix-cell-zero {
       color: var(--muted);
       font-weight: 400;
     }
-    #loading, #error { color: var(--muted); font-size: 14px; padding: 40px 0; text-align: center; }
+    .legend-row {
+      display: flex;
+      gap: 16px;
+      flex-wrap: wrap;
+      margin-bottom: 12px;
+      font-size: 12px;
+      color: var(--muted);
+      font-weight: 600;
+    }
+    .legend-dot {
+      display: inline-block;
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      margin-right: 6px;
+    }
+    #loading, #error { color: var(--muted); font-size: 14px; padding: 60px 0; text-align: center; }
     #error { color: var(--down); }
   </style>
 </head>
 <body>
-  <header>
-    <div>
-      <h1>Creative Brief Dashboard &mdash; <?= podLabel ?></h1>
-      <div class="sub" id="lastSync">Loading...</div>
-    </div>
-    <button id="refreshBtn" onclick="refreshNow()">Refresh</button>
-  </header>
-
-  <div id="loading">Loading dashboard data...</div>
-  <div id="error" style="display:none;"></div>
-
-  <div id="dashboard" style="display:none;">
-    <div class="grid" id="personCards"></div>
-
-    <div class="chart-row">
-      <div class="card chart-card">
-        <h2>Weekly Trend (per person)</h2>
-        <canvas id="trendChart"></canvas>
+  <div class="page-wrap">
+    <header>
+      <div class="title-block">
+        <h1><?= dashboardTitle ?><span class="pod-badge"><?= podLabel ?></span></h1>
+        <div class="sub" id="lastSync">Loading...</div>
       </div>
-      <div class="card chart-card">
-        <h2>By Account (this week)</h2>
-        <canvas id="accountChart"></canvas>
-      </div>
-      <div class="card chart-card">
-        <h2>By Creative Type (this week)</h2>
-        <canvas id="typeChart"></canvas>
-      </div>
-    </div>
+      <button id="refreshBtn" onclick="refreshNow()">Refresh</button>
+    </header>
 
-    <div class="detail-section">
-      <div class="tabs" id="personTabs"></div>
-      <div class="detail-row">
-        <div class="card chart-card">
-          <h2>Weekly Volume</h2>
-          <canvas id="personWeeklyChart"></canvas>
+    <div id="loading">Loading dashboard data...</div>
+    <div id="error" style="display:none;"></div>
+
+    <div id="dashboard" style="display:none;">
+      <div class="nav-tabs" id="navTabs"></div>
+
+      <div class="page-section" id="page-overview">
+        <div class="grid" id="personCards"></div>
+
+        <div class="chart-row">
+          <div class="card chart-card">
+            <h2>Weekly Trend (per media buyer)</h2>
+            <canvas id="trendChart"></canvas>
+          </div>
+          <div class="card chart-card">
+            <h2>By Account (this week)</h2>
+            <canvas id="accountChart"></canvas>
+          </div>
+          <div class="card chart-card">
+            <h2>By Creative Type (this week)</h2>
+            <canvas id="typeChart"></canvas>
+          </div>
         </div>
+
         <div class="card chart-card">
-          <h2>By Account (last <span id="detailWeekCount"></span> weeks)</h2>
-          <canvas id="personAccountChart"></canvas>
-        </div>
-        <div class="card chart-card">
-          <h2>By Creative Type (last <span id="detailWeekCount2"></span> weeks)</h2>
-          <canvas id="personTypeChart"></canvas>
+          <h2>Monthly Volume (per media buyer)</h2>
+          <canvas id="monthlyTrendChart"></canvas>
         </div>
       </div>
-    </div>
 
-    <div class="detail-section">
-      <h2 style="margin-bottom: 12px;">Weekly Breakdown by Account &amp; Media Buyer</h2>
-      <div class="week-tabs" id="weekTabs"></div>
-      <div class="card">
-        <table class="matrix-table" id="weekMatrixTable"></table>
+      <div class="page-section" id="page-detail">
+        <div class="tabs" id="personTabs"></div>
+        <div class="detail-row">
+          <div class="card chart-card">
+            <h2>Weekly Volume</h2>
+            <canvas id="personWeeklyChart"></canvas>
+          </div>
+          <div class="card chart-card">
+            <h2>By Account (last <span id="detailWeekCount"></span> weeks)</h2>
+            <canvas id="personAccountChart"></canvas>
+          </div>
+          <div class="card chart-card">
+            <h2>By Creative Type (last <span id="detailWeekCount2"></span> weeks)</h2>
+            <canvas id="personTypeChart"></canvas>
+          </div>
+        </div>
       </div>
-    </div>
 
-    <div class="detail-section">
-      <h2 style="margin-bottom: 12px;">Monthly Breakdown by Account &amp; Media Buyer</h2>
-      <div class="week-tabs" id="monthTabs"></div>
-      <div class="card">
-        <table class="matrix-table" id="monthMatrixTable"></table>
+      <div class="page-section" id="page-matrix">
+        <div class="detail-section">
+          <div class="section-title">Weekly Breakdown by Account &amp; Media Buyer</div>
+          <div class="week-tabs" id="weekTabs"></div>
+          <div class="card">
+            <table class="matrix-table" id="weekMatrixTable"></table>
+          </div>
+        </div>
+
+        <div class="detail-section">
+          <div class="section-title">Monthly Breakdown by Account &amp; Media Buyer</div>
+          <div class="week-tabs" id="monthTabs"></div>
+          <div class="card">
+            <table class="matrix-table" id="monthMatrixTable"></table>
+          </div>
+        </div>
+      </div>
+
+      <div class="page-section" id="page-comparison">
+        <p class="sub" style="margin: -4px 0 16px;">Side-by-side comparison across all media buyers, over the trailing window shown above.</p>
+        <div class="chart-row-2">
+          <div class="card chart-card">
+            <h2>Creative Volume by Client</h2>
+            <canvas id="compAccountChart"></canvas>
+          </div>
+          <div class="card chart-card">
+            <h2>Creative Volume by Creative Type</h2>
+            <canvas id="compTypeChart"></canvas>
+          </div>
+        </div>
       </div>
     </div>
   </div>
 
   <script>
-    var PERSON_COLORS = {}; // filled once data arrives, keyed by person name
     var PALETTE = ['#4f5bff', '#ff8a4f', '#2fbf8f', '#e5484d', '#a855f7'];
+    var TYPE_FALLBACK_COLOR = '#9aa0ae';
 
     function colorFor(person, people) {
       var idx = people.indexOf(person);
       return PALETTE[idx % PALETTE.length];
+    }
+
+    function typeColor(data, type) {
+      return (data.creativeTypeColors && data.creativeTypeColors[type]) || TYPE_FALLBACK_COLOR;
+    }
+
+    function orderedTypeKeys(data, breakdownObj) {
+      var keys = Object.keys(breakdownObj);
+      var order = data.creativeTypeOrder || [];
+      var ordered = order.filter(function (t) { return keys.indexOf(t) !== -1; });
+      keys.forEach(function (k) {
+        if (ordered.indexOf(k) === -1) ordered.push(k);
+      });
+      return ordered;
+    }
+
+    function accountLabel(data, account) {
+      return (data.accountDisplayNames && data.accountDisplayNames[account]) || account;
     }
 
     function fmtDelta(delta) {
@@ -258,6 +397,34 @@
       return { text: '0', cls: 'flat' };
     }
 
+    // ---------- Top-level section nav ----------
+    var NAV_SECTIONS = [
+      { id: 'overview', label: 'Overview' },
+      { id: 'detail', label: 'Media Buyer Detail' },
+      { id: 'matrix', label: 'Weekly & Monthly Matrix' },
+      { id: 'comparison', label: 'Performance Comparison' }
+    ];
+    var ACTIVE_SECTION = 'overview';
+
+    function renderNavTabs() {
+      var container = document.getElementById('navTabs');
+      container.innerHTML = '';
+      NAV_SECTIONS.forEach(function (section) {
+        var btn = document.createElement('button');
+        btn.className = 'nav-tab-btn' + (section.id === ACTIVE_SECTION ? ' active' : '');
+        btn.textContent = section.label;
+        btn.onclick = function () {
+          ACTIVE_SECTION = section.id;
+          renderNavTabs();
+          NAV_SECTIONS.forEach(function (s) {
+            document.getElementById('page-' + s.id).classList.toggle('active', s.id === section.id);
+          });
+        };
+        container.appendChild(btn);
+      });
+    }
+
+    // ---------- Person summary cards ----------
     function renderPersonCards(data) {
       var container = document.getElementById('personCards');
       container.innerHTML = '';
@@ -268,7 +435,7 @@
         var card = document.createElement('div');
         card.className = 'card person-card';
         card.innerHTML =
-          '<h2>' + person + '</h2>' +
+          '<div class="name">' + person + '</div>' +
           '<div class="count">' + thisWeek + '</div>' +
           '<div class="rows">' +
           '<span>Last week: ' + lastWeek + '</span>' +
@@ -283,17 +450,23 @@
       return (d.getMonth() + 1) + '/' + d.getDate();
     }
 
-    var mainCharts = {};
+    var MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
-    function destroyMainChart(key) {
-      if (mainCharts[key]) {
-        mainCharts[key].destroy();
-        mainCharts[key] = null;
+    function monthLabel(monthKey) {
+      var parts = monthKey.split('-');
+      return MONTH_NAMES[parseInt(parts[1], 10) - 1] + ' ' + parts[0];
+    }
+
+    // ---------- Chart.js instance bookkeeping ----------
+    var charts = {};
+    function destroyChart(key) {
+      if (charts[key]) {
+        charts[key].destroy();
+        charts[key] = null;
       }
     }
 
     function renderTrendChart(data) {
-      var ctx = document.getElementById('trendChart');
       var datasets = data.people.map(function (person) {
         return {
           label: person,
@@ -304,13 +477,10 @@
           fill: false
         };
       });
-      destroyMainChart('trend');
-      mainCharts.trend = new Chart(ctx, {
+      destroyChart('trend');
+      charts.trend = new Chart(document.getElementById('trendChart'), {
         type: 'line',
-        data: {
-          labels: data.weeks.map(shortWeekLabel),
-          datasets: datasets
-        },
+        data: { labels: data.weeks.map(shortWeekLabel), datasets: datasets },
         options: {
           responsive: true,
           plugins: { legend: { position: 'bottom' } },
@@ -319,17 +489,35 @@
       });
     }
 
-    function renderBarChart(canvasId, breakdownObj, labelFn) {
+    function renderMonthlyTrendChart(data) {
+      var datasets = data.people.map(function (person) {
+        return {
+          label: person,
+          data: data.monthlyTrend[person],
+          backgroundColor: colorFor(person, data.people)
+        };
+      });
+      destroyChart('monthlyTrend');
+      charts.monthlyTrend = new Chart(document.getElementById('monthlyTrendChart'), {
+        type: 'bar',
+        data: { labels: data.months.map(monthLabel), datasets: datasets },
+        options: {
+          responsive: true,
+          plugins: { legend: { position: 'bottom' } },
+          scales: { y: { beginAtZero: true, ticks: { precision: 0 } } }
+        }
+      });
+    }
+
+    function renderBarChart(canvasId, breakdownObj, labelFn, colorFn) {
       var keys = Object.keys(breakdownObj);
       var labels = labelFn ? keys.map(labelFn) : keys;
       var values = keys.map(function (k) { return breakdownObj[k]; });
-      destroyMainChart(canvasId);
-      mainCharts[canvasId] = new Chart(document.getElementById(canvasId), {
+      var colors = colorFn ? keys.map(colorFn) : '#4f5bff';
+      destroyChart(canvasId);
+      charts[canvasId] = new Chart(document.getElementById(canvasId), {
         type: 'bar',
-        data: {
-          labels: labels,
-          datasets: [{ data: values, backgroundColor: '#4f5bff' }]
-        },
+        data: { labels: labels, datasets: [{ data: values, backgroundColor: colors }] },
         options: {
           responsive: true,
           plugins: { legend: { display: false } },
@@ -338,9 +526,8 @@
       });
     }
 
-    var CURRENT_DATA = null;
+    // ---------- Media Buyer Detail tabs ----------
     var SELECTED_PERSON = null;
-    var personDetailCharts = {};
 
     function renderPersonTabs(data) {
       var container = document.getElementById('personTabs');
@@ -349,9 +536,8 @@
         var btn = document.createElement('button');
         btn.className = 'tab-btn' + (person === SELECTED_PERSON ? ' active' : '');
         btn.textContent = person;
-        var color = colorFor(person, data.people);
         if (person === SELECTED_PERSON) {
-          btn.style.background = color;
+          btn.style.background = colorFor(person, data.people);
         }
         btn.onclick = function () {
           SELECTED_PERSON = person;
@@ -362,21 +548,14 @@
       });
     }
 
-    function destroyChart(key) {
-      if (personDetailCharts[key]) {
-        personDetailCharts[key].destroy();
-        personDetailCharts[key] = null;
-      }
-    }
-
     function renderPersonDetail(data, person) {
       var detail = data.perPerson[person];
       document.getElementById('detailWeekCount').textContent = data.weeks.length;
       document.getElementById('detailWeekCount2').textContent = data.weeks.length;
       var color = colorFor(person, data.people);
 
-      destroyChart('weekly');
-      personDetailCharts.weekly = new Chart(document.getElementById('personWeeklyChart'), {
+      destroyChart('personWeekly');
+      charts.personWeekly = new Chart(document.getElementById('personWeeklyChart'), {
         type: 'bar',
         data: {
           labels: data.weeks.map(shortWeekLabel),
@@ -389,10 +568,10 @@
         }
       });
 
-      destroyChart('account');
+      destroyChart('personAccount');
       var accountKeys = Object.keys(detail.accountBreakdown);
       var accountLabels = accountKeys.map(function (a) { return accountLabel(data, a); });
-      personDetailCharts.account = new Chart(document.getElementById('personAccountChart'), {
+      charts.personAccount = new Chart(document.getElementById('personAccountChart'), {
         type: 'bar',
         data: {
           labels: accountLabels,
@@ -408,15 +587,15 @@
         }
       });
 
-      destroyChart('type');
-      var typeLabels = Object.keys(detail.creativeTypeBreakdown);
-      personDetailCharts.type = new Chart(document.getElementById('personTypeChart'), {
+      destroyChart('personType');
+      var typeKeys = orderedTypeKeys(data, detail.creativeTypeBreakdown);
+      charts.personType = new Chart(document.getElementById('personTypeChart'), {
         type: 'bar',
         data: {
-          labels: typeLabels,
+          labels: typeKeys,
           datasets: [{
-            data: typeLabels.map(function (t) { return detail.creativeTypeBreakdown[t]; }),
-            backgroundColor: color
+            data: typeKeys.map(function (t) { return detail.creativeTypeBreakdown[t]; }),
+            backgroundColor: typeKeys.map(function (t) { return typeColor(data, t); })
           }]
         },
         options: {
@@ -427,10 +606,7 @@
       });
     }
 
-    function accountLabel(data, account) {
-      return (data.accountDisplayNames && data.accountDisplayNames[account]) || account;
-    }
-
+    // ---------- Weekly / Monthly account x person matrix ----------
     var SELECTED_WEEK = null;
     var SELECTED_MONTH = null;
 
@@ -442,15 +618,6 @@
       return fmt(start) + '–' + fmt(end);
     }
 
-    var MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-
-    function monthLabel(monthKey) {
-      var parts = monthKey.split('-');
-      return MONTH_NAMES[parseInt(parts[1], 10) - 1] + ' ' + parts[0];
-    }
-
-    // Generic renderer for a period-tabs + account-x-person matrix table,
-    // shared by the weekly and monthly breakdown sections below.
     function renderPeriodTabs(tabsContainerId, periods, selected, labelFn, onSelect) {
       var container = document.getElementById(tabsContainerId);
       container.innerHTML = '';
@@ -464,8 +631,6 @@
       container.scrollLeft = container.scrollWidth;
     }
 
-    // Cell shading capped low enough that dark text always stays legible
-    // regardless of value, rather than turning near-solid at high volumes.
     function cellShade(value, max) {
       if (!max || value === 0) return 'transparent';
       var intensity = 0.10 + 0.28 * (value / max);
@@ -483,9 +648,7 @@
       });
 
       var html = '<thead><tr><th>Account</th>';
-      data.people.forEach(function (person) {
-        html += '<th>' + person + '</th>';
-      });
+      data.people.forEach(function (person) { html += '<th>' + person + '</th>'; });
       html += '<th>Total</th></tr></thead><tbody>';
 
       var personTotals = {};
@@ -499,8 +662,7 @@
           rowTotal += val;
           personTotals[person] += val;
           var cls = val === 0 ? 'matrix-cell-value matrix-cell-zero' : 'matrix-cell-value';
-          html += '<td><span class="' + cls + '" style="background:' +
-            cellShade(val, maxCell) + '">' + val + '</span></td>';
+          html += '<td><span class="' + cls + '" style="background:' + cellShade(val, maxCell) + '">' + val + '</span></td>';
         });
         html += '<td><strong>' + rowTotal + '</strong></td></tr>';
       });
@@ -532,6 +694,39 @@
       renderMatrixTable('monthMatrixTable', data, data.monthlyMatrix[SELECTED_MONTH]);
     }
 
+    // ---------- Performance comparison (all media buyers side by side) ----------
+    function renderGroupedComparisonChart(canvasId, data, comparisonMatrix, categoryKeys, categoryLabelFn) {
+      var datasets = data.people.map(function (person) {
+        return {
+          label: person,
+          data: categoryKeys.map(function (key) { return comparisonMatrix[key][person]; }),
+          backgroundColor: colorFor(person, data.people)
+        };
+      });
+      destroyChart(canvasId);
+      charts[canvasId] = new Chart(document.getElementById(canvasId), {
+        type: 'bar',
+        data: { labels: categoryKeys.map(categoryLabelFn), datasets: datasets },
+        options: {
+          responsive: true,
+          plugins: { legend: { position: 'bottom' } },
+          scales: { y: { beginAtZero: true, ticks: { precision: 0 } } }
+        }
+      });
+    }
+
+    function renderComparisonSection(data) {
+      renderGroupedComparisonChart(
+        'compAccountChart', data, data.comparisonByAccount, data.accounts,
+        function (a) { return accountLabel(data, a); }
+      );
+      renderGroupedComparisonChart(
+        'compTypeChart', data, data.comparisonByType, data.creativeTypeOrder,
+        function (t) { return t; }
+      );
+    }
+
+    // ---------- Top-level render ----------
     function renderDashboard(data) {
       document.getElementById('loading').style.display = 'none';
       document.getElementById('dashboard').style.display = 'block';
@@ -539,7 +734,6 @@
         ? 'Last synced: ' + new Date(data.lastSyncAt).toLocaleString()
         : 'Not synced yet — click Refresh';
 
-      CURRENT_DATA = data;
       if (!SELECTED_PERSON || data.people.indexOf(SELECTED_PERSON) === -1) {
         SELECTED_PERSON = data.people[0];
       }
@@ -550,14 +744,24 @@
         SELECTED_MONTH = data.months[data.months.length - 1];
       }
 
+      renderNavTabs();
+      document.getElementById('page-' + ACTIVE_SECTION).classList.add('active');
+
       renderPersonCards(data);
       renderTrendChart(data);
       renderBarChart('accountChart', data.accountBreakdown.currentWeek, function (k) { return accountLabel(data, k); });
-      renderBarChart('typeChart', data.creativeTypeBreakdown.currentWeek);
+      renderBarChart(
+        'typeChart',
+        data.creativeTypeBreakdown.currentWeek,
+        null,
+        function (k) { return typeColor(data, k); }
+      );
+      renderMonthlyTrendChart(data);
       renderPersonTabs(data);
       renderPersonDetail(data, SELECTED_PERSON);
       renderWeekSection(data);
       renderMonthSection(data);
+      renderComparisonSection(data);
     }
 
     function loadDashboard() {
