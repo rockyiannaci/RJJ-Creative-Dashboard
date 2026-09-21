@@ -164,9 +164,15 @@
     }
     .matrix-cell-value {
       display: inline-block;
-      min-width: 28px;
-      padding: 4px 6px;
+      min-width: 32px;
+      padding: 4px 10px;
       border-radius: 6px;
+      font-weight: 700;
+      font-size: 14px;
+    }
+    .matrix-cell-zero {
+      color: var(--muted);
+      font-weight: 400;
     }
     #loading, #error { color: var(--muted); font-size: 14px; padding: 40px 0; text-align: center; }
     #error { color: var(--down); }
@@ -224,7 +230,15 @@
       <h2 style="margin-bottom: 12px;">Weekly Breakdown by Account &amp; Media Buyer</h2>
       <div class="week-tabs" id="weekTabs"></div>
       <div class="card">
-        <table class="matrix-table" id="matrixTable"></table>
+        <table class="matrix-table" id="weekMatrixTable"></table>
+      </div>
+    </div>
+
+    <div class="detail-section">
+      <h2 style="margin-bottom: 12px;">Monthly Breakdown by Account &amp; Media Buyer</h2>
+      <div class="week-tabs" id="monthTabs"></div>
+      <div class="card">
+        <table class="matrix-table" id="monthMatrixTable"></table>
       </div>
     </div>
   </div>
@@ -305,9 +319,10 @@
       });
     }
 
-    function renderBarChart(canvasId, breakdownObj) {
-      var labels = Object.keys(breakdownObj);
-      var values = labels.map(function (k) { return breakdownObj[k]; });
+    function renderBarChart(canvasId, breakdownObj, labelFn) {
+      var keys = Object.keys(breakdownObj);
+      var labels = labelFn ? keys.map(labelFn) : keys;
+      var values = keys.map(function (k) { return breakdownObj[k]; });
       destroyMainChart(canvasId);
       mainCharts[canvasId] = new Chart(document.getElementById(canvasId), {
         type: 'bar',
@@ -375,13 +390,14 @@
       });
 
       destroyChart('account');
-      var accountLabels = Object.keys(detail.accountBreakdown);
+      var accountKeys = Object.keys(detail.accountBreakdown);
+      var accountLabels = accountKeys.map(function (a) { return accountLabel(data, a); });
       personDetailCharts.account = new Chart(document.getElementById('personAccountChart'), {
         type: 'bar',
         data: {
           labels: accountLabels,
           datasets: [{
-            data: accountLabels.map(function (a) { return detail.accountBreakdown[a]; }),
+            data: accountKeys.map(function (a) { return detail.accountBreakdown[a]; }),
             backgroundColor: color
           }]
         },
@@ -411,7 +427,12 @@
       });
     }
 
+    function accountLabel(data, account) {
+      return (data.accountDisplayNames && data.accountDisplayNames[account]) || account;
+    }
+
     var SELECTED_WEEK = null;
+    var SELECTED_MONTH = null;
 
     function weekRangeLabel(weekStart) {
       var start = new Date(weekStart + 'T00:00:00');
@@ -421,32 +442,38 @@
       return fmt(start) + '–' + fmt(end);
     }
 
-    function renderWeekTabs(data) {
-      var container = document.getElementById('weekTabs');
+    var MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+    function monthLabel(monthKey) {
+      var parts = monthKey.split('-');
+      return MONTH_NAMES[parseInt(parts[1], 10) - 1] + ' ' + parts[0];
+    }
+
+    // Generic renderer for a period-tabs + account-x-person matrix table,
+    // shared by the weekly and monthly breakdown sections below.
+    function renderPeriodTabs(tabsContainerId, periods, selected, labelFn, onSelect) {
+      var container = document.getElementById(tabsContainerId);
       container.innerHTML = '';
-      data.weeks.forEach(function (week) {
+      periods.forEach(function (period) {
         var btn = document.createElement('button');
-        btn.className = 'week-tab-btn' + (week === SELECTED_WEEK ? ' active' : '');
-        btn.textContent = weekRangeLabel(week);
-        btn.onclick = function () {
-          SELECTED_WEEK = week;
-          renderWeekTabs(data);
-          renderMatrixTable(data, week);
-        };
+        btn.className = 'week-tab-btn' + (period === selected ? ' active' : '');
+        btn.textContent = labelFn(period);
+        btn.onclick = function () { onSelect(period); };
         container.appendChild(btn);
       });
       container.scrollLeft = container.scrollWidth;
     }
 
+    // Cell shading capped low enough that dark text always stays legible
+    // regardless of value, rather than turning near-solid at high volumes.
     function cellShade(value, max) {
       if (!max || value === 0) return 'transparent';
-      var intensity = 0.12 + 0.55 * (value / max);
+      var intensity = 0.10 + 0.28 * (value / max);
       return 'rgba(79, 91, 255, ' + intensity.toFixed(2) + ')';
     }
 
-    function renderMatrixTable(data, week) {
-      var matrix = data.weeklyMatrix[week];
-      var table = document.getElementById('matrixTable');
+    function renderMatrixTable(tableId, data, matrix) {
+      var table = document.getElementById(tableId);
 
       var maxCell = 0;
       data.accounts.forEach(function (account) {
@@ -466,12 +493,13 @@
 
       data.accounts.forEach(function (account) {
         var rowTotal = 0;
-        html += '<tr><td>' + account + '</td>';
+        html += '<tr><td>' + accountLabel(data, account) + '</td>';
         data.people.forEach(function (person) {
           var val = matrix[account][person];
           rowTotal += val;
           personTotals[person] += val;
-          html += '<td><span class="matrix-cell-value" style="background:' +
+          var cls = val === 0 ? 'matrix-cell-value matrix-cell-zero' : 'matrix-cell-value';
+          html += '<td><span class="' + cls + '" style="background:' +
             cellShade(val, maxCell) + '">' + val + '</span></td>';
         });
         html += '<td><strong>' + rowTotal + '</strong></td></tr>';
@@ -488,6 +516,22 @@
       table.innerHTML = html;
     }
 
+    function renderWeekSection(data) {
+      renderPeriodTabs('weekTabs', data.weeks, SELECTED_WEEK, weekRangeLabel, function (week) {
+        SELECTED_WEEK = week;
+        renderWeekSection(data);
+      });
+      renderMatrixTable('weekMatrixTable', data, data.weeklyMatrix[SELECTED_WEEK]);
+    }
+
+    function renderMonthSection(data) {
+      renderPeriodTabs('monthTabs', data.months, SELECTED_MONTH, monthLabel, function (month) {
+        SELECTED_MONTH = month;
+        renderMonthSection(data);
+      });
+      renderMatrixTable('monthMatrixTable', data, data.monthlyMatrix[SELECTED_MONTH]);
+    }
+
     function renderDashboard(data) {
       document.getElementById('loading').style.display = 'none';
       document.getElementById('dashboard').style.display = 'block';
@@ -502,15 +546,18 @@
       if (!SELECTED_WEEK || data.weeks.indexOf(SELECTED_WEEK) === -1) {
         SELECTED_WEEK = data.currentWeek;
       }
+      if (!SELECTED_MONTH || data.months.indexOf(SELECTED_MONTH) === -1) {
+        SELECTED_MONTH = data.months[data.months.length - 1];
+      }
 
       renderPersonCards(data);
       renderTrendChart(data);
-      renderBarChart('accountChart', data.accountBreakdown.currentWeek);
+      renderBarChart('accountChart', data.accountBreakdown.currentWeek, function (k) { return accountLabel(data, k); });
       renderBarChart('typeChart', data.creativeTypeBreakdown.currentWeek);
       renderPersonTabs(data);
       renderPersonDetail(data, SELECTED_PERSON);
-      renderWeekTabs(data);
-      renderMatrixTable(data, SELECTED_WEEK);
+      renderWeekSection(data);
+      renderMonthSection(data);
     }
 
     function loadDashboard() {

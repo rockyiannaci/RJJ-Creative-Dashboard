@@ -24,9 +24,19 @@ var POD_CONFIGS = {
       'Renewal By Andersen - QC',
       'Renewal By Andersen - ENY'
     ],
+    // Short labels for the dashboard UI. Filtering still matches against
+    // the real Asana "Client Name" values above; this only changes what's
+    // displayed on screen.
+    accountDisplayNames: {
+      'Refloor': 'Refloor',
+      'Leaf Home Enhancements': 'Leaf Home',
+      'Renewal By Andersen - GW': 'RBA GW',
+      'Renewal By Andersen - QC': 'RBA QC',
+      'Renewal By Andersen - ENY': 'RBA E NY'
+    },
     // Custom field names on the Asana task, as they appear in Asana.
     clientNameFieldName: 'Client Name',
-    creativeTypeFieldName: 'Creative Request'
+    creativeTypeFieldName: 'Creative Request Type'
   }
 };
 

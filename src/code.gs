@@ -5,6 +5,7 @@
  */
 
 var TRAILING_WEEKS = 10;
+var TRAILING_MONTHS = 6;
 
 function doGet() {
   var template = HtmlService.createTemplateFromFile('index');
@@ -40,12 +41,36 @@ function readDataRows_() {
       name: r[1],
       createdAt: r[2],
       weekStart: normalizeDateCell_(r[3]),
+      monthStart: getMonthKeyFromCreatedAt_(r[2]),
       person: r[4],
       account: r[5],
       creativeType: r[6],
       completed: r[7]
     };
   });
+}
+
+/**
+ * Derives a "yyyy-MM" month key from the created_at cell, which (like
+ * week_start) may come back as either a string or an auto-converted Date.
+ */
+function getMonthKeyFromCreatedAt_(createdAt) {
+  var d = createdAt instanceof Date ? createdAt : new Date(createdAt);
+  return Utilities.formatDate(d, Session.getScriptTimeZone(), 'yyyy-MM');
+}
+
+/**
+ * Ordered list of the last N month keys ("yyyy-MM"), oldest first, ending
+ * with the current month.
+ */
+function getLastNMonths_(n) {
+  var months = [];
+  var today = new Date();
+  for (var i = n - 1; i >= 0; i--) {
+    var d = new Date(today.getFullYear(), today.getMonth() - i, 1);
+    months.push(Utilities.formatDate(d, Session.getScriptTimeZone(), 'yyyy-MM'));
+  }
+  return months;
 }
 
 /**
@@ -155,6 +180,27 @@ function getDashboardData() {
     weeklyMatrix[week] = matrix;
   });
 
+  // Per-month account x person matrix, same shape as weeklyMatrix but
+  // bucketed by calendar month, for the "big picture" monthly view.
+  var months = getLastNMonths_(TRAILING_MONTHS);
+  var monthlyMatrix = {};
+  months.forEach(function (month) {
+    var monthRows = rows.filter(function (r) {
+      return r.monthStart === month;
+    });
+    var matrix = {};
+    podConfig.accounts.forEach(function (account) {
+      var byPerson = {};
+      podConfig.people.forEach(function (person) {
+        byPerson[person] = monthRows.filter(function (r) {
+          return r.account === account && r.person === person;
+        }).length;
+      });
+      matrix[account] = byPerson;
+    });
+    monthlyMatrix[month] = matrix;
+  });
+
   // Per-person detail: weekly volume, and account / creative-type
   // breakdowns over the trailing window, for the person-detail tabs.
   var perPerson = {};
@@ -178,7 +224,9 @@ function getDashboardData() {
     podLabel: podConfig.label,
     people: podConfig.people,
     accounts: podConfig.accounts,
+    accountDisplayNames: podConfig.accountDisplayNames || {},
     weeks: weeks,
+    months: months,
     currentWeek: currentWeek,
     lastWeek: lastWeek,
     lastSyncAt: PropertiesService.getScriptProperties().getProperty('LAST_SYNC_AT') || null,
@@ -187,6 +235,7 @@ function getDashboardData() {
     lastWeekByPerson: lastWeekCounts,
     perPerson: perPerson,
     weeklyMatrix: weeklyMatrix,
+    monthlyMatrix: monthlyMatrix,
     accountBreakdown: {
       currentWeek: tallyBy_(currentWeekRows, function (r) {
         return r.account;

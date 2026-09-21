@@ -81,8 +81,14 @@ function filterAndAggregate_(tasks, podConfig) {
   var excludedByPerson = 0;
   var excludedByBoth = 0;
   var seenAccountValues = {};
+  var seenCustomFieldNames = {};
+  var matchedWithoutCreativeType = 0;
 
   tasks.forEach(function (task) {
+    (task.custom_fields || []).forEach(function (f) {
+      seenCustomFieldNames[f.name] = true;
+    });
+
     var account = getCustomFieldValue_(task, podConfig.clientNameFieldName);
     var creativeType = getCustomFieldValue_(task, podConfig.creativeTypeFieldName);
     var person = task.created_by && task.created_by.name ? task.created_by.name : '';
@@ -94,6 +100,9 @@ function filterAndAggregate_(tasks, podConfig) {
 
     if (accountMatches && personMatches) {
       var created = new Date(task.created_at);
+      if (!creativeType) {
+        matchedWithoutCreativeType++;
+      }
       rows.push([
         task.gid,
         task.name,
@@ -119,7 +128,9 @@ function filterAndAggregate_(tasks, podConfig) {
     excludedByPerson: excludedByPerson,
     excludedByBoth: excludedByBoth,
     totalTasks: tasks.length,
-    seenAccountValues: seenAccountValues
+    seenAccountValues: seenAccountValues,
+    seenCustomFieldNames: Object.keys(seenCustomFieldNames),
+    matchedWithoutCreativeType: matchedWithoutCreativeType
   };
 }
 
@@ -158,7 +169,9 @@ function writeLogSheet_(ss, podConfig, aggregate) {
     'excluded_by_account_only',
     'excluded_by_person_only',
     'excluded_by_both',
-    'unmatched_account_values_seen'
+    'unmatched_account_values_seen',
+    'matched_without_creative_type',
+    'custom_field_names_seen'
   ]);
 
   var unmatchedAccounts = Object.keys(aggregate.seenAccountValues)
@@ -182,7 +195,9 @@ function writeLogSheet_(ss, podConfig, aggregate) {
     aggregate.excludedByAccount,
     aggregate.excludedByPerson,
     aggregate.excludedByBoth,
-    unmatchedAccounts
+    unmatchedAccounts,
+    aggregate.matchedWithoutCreativeType,
+    aggregate.seenCustomFieldNames.join(', ')
   ]);
 }
 
