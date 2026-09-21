@@ -44,6 +44,7 @@ function readDataRows_() {
       createdAt: r[2],
       weekStart: normalizeDateCell_(r[3]),
       monthStart: getMonthKeyFromCreatedAt_(r[2]),
+      day: getDayKeyFromCreatedAt_(r[2]),
       person: r[4],
       account: r[5],
       creativeType: r[6],
@@ -59,6 +60,15 @@ function readDataRows_() {
 function getMonthKeyFromCreatedAt_(createdAt) {
   var d = createdAt instanceof Date ? createdAt : new Date(createdAt);
   return Utilities.formatDate(d, Session.getScriptTimeZone(), 'yyyy-MM');
+}
+
+/**
+ * Derives a "yyyy-MM-dd" day key from the created_at cell, for arbitrary
+ * (non-calendar-week/month) date-range filtering.
+ */
+function getDayKeyFromCreatedAt_(createdAt) {
+  var d = createdAt instanceof Date ? createdAt : new Date(createdAt);
+  return Utilities.formatDate(d, Session.getScriptTimeZone(), 'yyyy-MM-dd');
 }
 
 /**
@@ -341,6 +351,238 @@ function getDashboardData() {
         return r.creativeType || 'Unspecified';
       })
     }
+  };
+}
+
+// ---------- Custom-period overview (month picker / All Time / custom range) ----------
+
+function ymd_(date) {
+  return Utilities.formatDate(date, Session.getScriptTimeZone(), 'yyyy-MM-dd');
+}
+
+function addDays_(dateKey, days) {
+  var d = new Date(dateKey + 'T00:00:00');
+  d.setDate(d.getDate() + days);
+  return ymd_(d);
+}
+
+function daysBetween_(startKey, endKey) {
+  var start = new Date(startKey + 'T00:00:00');
+  var end = new Date(endKey + 'T00:00:00');
+  return Math.round((end - start) / 86400000) + 1;
+}
+
+function lastDayOfMonth_(monthKey) {
+  var parts = monthKey.split('-');
+  var y = parseInt(parts[0], 10);
+  var m = parseInt(parts[1], 10);
+  return ymd_(new Date(y, m, 0)); // day 0 of next month = last day of this one
+}
+
+function monthLabel_(monthKey) {
+  var names = ['January', 'February', 'March', 'April', 'May', 'June', 'July',
+    'August', 'September', 'October', 'November', 'December'];
+  var parts = monthKey.split('-');
+  return names[parseInt(parts[1], 10) - 1] + ' ' + parts[0];
+}
+
+/**
+ * Every Monday week-start key whose Mon-Sun week overlaps [startKey, endKey].
+ */
+function weeksOverlapping_(startKey, endKey) {
+  var weeks = [];
+  var cursor = getWeekStart_(new Date(startKey + 'T00:00:00'));
+  var endWeek = getWeekStart_(new Date(endKey + 'T00:00:00'));
+  while (cursor <= endWeek) {
+    weeks.push(cursor);
+    cursor = addDays_(cursor, 7);
+  }
+  return weeks;
+}
+
+/**
+ * Splits [startKey, endKey] into consecutive 7-day chunks (last one may be
+ * shorter). Used for custom ranges, which aren't calendar-aligned.
+ */
+function chunksOfSevenDays_(startKey, endKey) {
+  var chunks = [];
+  var cursor = startKey;
+  while (cursor <= endKey) {
+    var chunkEnd = addDays_(cursor, 6);
+    if (chunkEnd > endKey) chunkEnd = endKey;
+    chunks.push({ startKey: cursor, endKey: chunkEnd });
+    cursor = addDays_(chunkEnd, 1);
+  }
+  return chunks;
+}
+
+/**
+ * Resolves a filter spec from the dashboard's overview filter bar into a
+ * concrete date range, its immediately-preceding comparison period (for
+ * the delta on the stat cards), and how to bucket it for the trend chart.
+ *
+ * filterSpec is one of:
+ *   { type: 'all' }
+ *   { type: 'month', month: 'yyyy-MM' }
+ *   { type: 'custom', startDaysAgo: N, endDaysAgo: M }  (both counted back from today)
+ */
+function resolveFilterRange_(filterSpec, rows, todayKey) {
+  if (filterSpec.type === 'all') {
+    var minDay = todayKey;
+    rows.forEach(function (r) {
+      if (r.day < minDay) minDay = r.day;
+    });
+    var startMonth = minDay.substring(0, 7);
+    var endMonth = todayKey.substring(0, 7);
+    var months = [];
+    var y = parseInt(startMonth.split('-')[0], 10);
+    var m = parseInt(startMonth.split('-')[1], 10);
+    var endY = parseInt(endMonth.split('-')[0], 10);
+    var endM = parseInt(endMonth.split('-')[1], 10);
+    while (y < endY || (y === endY && m <= endM)) {
+      months.push(y + '-' + (m < 10 ? '0' : '') + m);
+      m++;
+      if (m > 12) {
+        m = 1;
+        y++;
+      }
+    }
+    return {
+      startKey: minDay,
+      endKey: todayKey,
+      prevStartKey: null,
+      prevEndKey: null,
+      granularity: 'month',
+      bucketKeys: months,
+      rangeLabel: 'All Time'
+    };
+  }
+
+  if (filterSpec.type === 'month') {
+    var month = filterSpec.month;
+    var startKey = month + '-01';
+    var endKey = lastDayOfMonth_(month);
+    if (endKey > todayKey) endKey = todayKey;
+
+    var prevDate = new Date(startKey + 'T00:00:00');
+    prevDate.setMonth(prevDate.getMonth() - 1);
+    var prevMonth = Utilities.formatDate(prevDate, Session.getScriptTimeZone(), 'yyyy-MM');
+
+    return {
+      startKey: startKey,
+      endKey: endKey,
+      prevStartKey: prevMonth + '-01',
+      prevEndKey: lastDayOfMonth_(prevMonth),
+      granularity: 'week',
+      bucketKeys: weeksOverlapping_(startKey, endKey),
+      rangeLabel: monthLabel_(month)
+    };
+  }
+
+  // 'custom': both values are "days ago", larger one is the start of the range.
+  var startDaysAgo = Math.max(filterSpec.startDaysAgo, filterSpec.endDaysAgo);
+  var endDaysAgo = Math.min(filterSpec.startDaysAgo, filterSpec.endDaysAgo);
+  var rangeEndKey = addDays_(todayKey, -endDaysAgo);
+  var rangeStartKey = addDays_(todayKey, -startDaysAgo);
+  var lengthDays = daysBetween_(rangeStartKey, rangeEndKey);
+  var prevEndKey = addDays_(rangeStartKey, -1);
+  var prevStartKey = addDays_(prevEndKey, -(lengthDays - 1));
+
+  return {
+    startKey: rangeStartKey,
+    endKey: rangeEndKey,
+    prevStartKey: prevStartKey,
+    prevEndKey: prevEndKey,
+    granularity: 'chunk',
+    bucketKeys: chunksOfSevenDays_(rangeStartKey, rangeEndKey),
+    rangeLabel: startDaysAgo + '–' + endDaysAgo + ' days ago'
+  };
+}
+
+/**
+ * Powers the Overview tab's filter bar (month picker / All Time / custom
+ * date range). Reads the same pre-synced sheet as getDashboardData(), just
+ * bucketed and totaled differently, so it's just as fast.
+ */
+function getOverviewForFilter(filterSpec) {
+  var podConfig = getActivePodConfig();
+  var rows = readDataRows_();
+  var todayKey = ymd_(new Date());
+
+  var range = resolveFilterRange_(filterSpec, rows, todayKey);
+
+  var periodRows = rows.filter(function (r) {
+    return r.day >= range.startKey && r.day <= range.endKey;
+  });
+  var prevPeriodRows = range.prevStartKey
+    ? rows.filter(function (r) {
+        return r.day >= range.prevStartKey && r.day <= range.prevEndKey;
+      })
+    : [];
+
+  var totals = {};
+  var previousTotals = {};
+  podConfig.people.forEach(function (person) {
+    totals[person] = periodRows.filter(function (r) {
+      return r.person === person;
+    }).length;
+    previousTotals[person] = prevPeriodRows.filter(function (r) {
+      return r.person === person;
+    }).length;
+  });
+
+  var creativeTypesSeenAll = {};
+  rows.forEach(function (r) {
+    creativeTypesSeenAll[r.creativeType || 'Unspecified'] = true;
+  });
+  var creativeTypeOrder = (podConfig.creativeTypeOrder || []).filter(function (t) {
+    return creativeTypesSeenAll[t];
+  });
+  Object.keys(creativeTypesSeenAll)
+    .sort()
+    .forEach(function (t) {
+      if (creativeTypeOrder.indexOf(t) === -1) creativeTypeOrder.push(t);
+    });
+
+  var trend = {};
+  podConfig.people.forEach(function (person) {
+    trend[person] = range.bucketKeys.map(function (bucket) {
+      var bStart, bEnd;
+      if (range.granularity === 'chunk') {
+        bStart = bucket.startKey;
+        bEnd = bucket.endKey;
+      } else if (range.granularity === 'month') {
+        bStart = bucket + '-01';
+        bEnd = lastDayOfMonth_(bucket);
+      } else {
+        bStart = bucket;
+        bEnd = addDays_(bucket, 6);
+      }
+      return periodRows.filter(function (r) {
+        return r.person === person && r.day >= bStart && r.day <= bEnd;
+      }).length;
+    });
+  });
+
+  return {
+    rangeLabel: range.rangeLabel,
+    hasPrevious: !!range.prevStartKey,
+    granularity: range.granularity,
+    bucketKeys: range.bucketKeys,
+    people: podConfig.people,
+    accounts: podConfig.accounts,
+    accountDisplayNames: podConfig.accountDisplayNames || {},
+    creativeTypeColors: podConfig.creativeTypeColors || {},
+    creativeTypeOrder: creativeTypeOrder,
+    totals: totals,
+    previousTotals: previousTotals,
+    trend: trend,
+    accountBreakdown: tallyBy_(periodRows, function (r) {
+      return r.account;
+    }),
+    creativeTypeBreakdown: tallyBy_(periodRows, function (r) {
+      return r.creativeType || 'Unspecified';
+    })
   };
 }
 

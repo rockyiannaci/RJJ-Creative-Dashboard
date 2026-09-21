@@ -337,6 +337,43 @@
           <h2>Monthly Volume (per media buyer)</h2>
           <canvas id="monthlyTrendChart"></canvas>
         </div>
+
+        <div class="detail-section">
+          <div class="section-title">Custom Period Overview</div>
+          <div class="week-tabs" id="periodFilterTabs"></div>
+
+          <div id="customRangeBox" class="card" style="display:none; margin-bottom:16px;">
+            <div style="font-size:13px; font-weight:700; color:var(--muted); margin-bottom:12px; text-transform:uppercase; letter-spacing:0.05em;">Custom date range</div>
+            <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:flex-end;">
+              <button class="tab-btn" id="presetBtn1">42&ndash;14 days ago</button>
+              <button class="tab-btn" id="presetBtn2">Last 35 days</button>
+              <label style="font-size:12px; color:var(--muted);">Days back (start)<br>
+                <input type="number" id="customStartInput" min="0" value="42" style="width:70px; padding:7px; border:1px solid var(--border); border-radius:8px; font-family:inherit; font-size:14px;">
+              </label>
+              <label style="font-size:12px; color:var(--muted);">Days back (end)<br>
+                <input type="number" id="customEndInput" min="0" value="14" style="width:70px; padding:7px; border:1px solid var(--border); border-radius:8px; font-family:inherit; font-size:14px;">
+              </label>
+              <button class="tab-btn" id="customApplyBtn" style="background:var(--accent); color:white; border-color:transparent;">Apply</button>
+            </div>
+          </div>
+
+          <p class="sub" id="periodRangeLabel" style="margin: 0 0 12px;"></p>
+          <div class="grid" id="periodPersonCards"></div>
+          <div class="chart-row">
+            <div class="card chart-card">
+              <h2>Trend</h2>
+              <canvas id="periodTrendChart"></canvas>
+            </div>
+            <div class="card chart-card">
+              <h2>By Account</h2>
+              <canvas id="periodAccountChart"></canvas>
+            </div>
+            <div class="card chart-card">
+              <h2>By Creative Type</h2>
+              <canvas id="periodTypeChart"></canvas>
+            </div>
+          </div>
+        </div>
       </div>
 
       <div class="page-section" id="page-detail">
@@ -586,6 +623,105 @@
           scales: { y: { beginAtZero: true, ticks: { precision: 0 }, grace: '12%' } }
         }
       });
+    }
+
+    // ---------- Custom Period Overview (month / All Time / custom range) ----------
+    var SELECTED_PERIOD_KEY = null; // 'all' | 'yyyy-MM' | 'custom'
+    var LAST_PERIOD_SPEC = null;
+    var CUSTOM_LISTENERS_BOUND = false;
+
+    function renderPeriodFilterTabs(data) {
+      var keys = ['all'].concat(data.months).concat(['custom']);
+      var container = document.getElementById('periodFilterTabs');
+      container.innerHTML = '';
+      keys.forEach(function (key) {
+        var label = key === 'all' ? 'All Time' : (key === 'custom' ? 'Custom' : monthLabel(key));
+        var btn = document.createElement('button');
+        btn.className = 'week-tab-btn' + (key === SELECTED_PERIOD_KEY ? ' active' : '');
+        btn.textContent = label;
+        btn.onclick = function () {
+          SELECTED_PERIOD_KEY = key;
+          renderPeriodFilterTabs(data);
+          document.getElementById('customRangeBox').style.display = key === 'custom' ? 'block' : 'none';
+          if (key === 'all') {
+            fetchPeriodOverview({ type: 'all' });
+          } else if (key !== 'custom') {
+            fetchPeriodOverview({ type: 'month', month: key });
+          }
+        };
+        container.appendChild(btn);
+      });
+    }
+
+    function bindCustomRangeControlsOnce() {
+      if (CUSTOM_LISTENERS_BOUND) return;
+      CUSTOM_LISTENERS_BOUND = true;
+      document.getElementById('presetBtn1').onclick = function () {
+        fetchPeriodOverview({ type: 'custom', startDaysAgo: 42, endDaysAgo: 14 });
+      };
+      document.getElementById('presetBtn2').onclick = function () {
+        fetchPeriodOverview({ type: 'custom', startDaysAgo: 35, endDaysAgo: 0 });
+      };
+      document.getElementById('customApplyBtn').onclick = function () {
+        var s = parseInt(document.getElementById('customStartInput').value, 10);
+        var e = parseInt(document.getElementById('customEndInput').value, 10);
+        if (isNaN(s) || isNaN(e) || s < 0 || e < 0) return;
+        fetchPeriodOverview({ type: 'custom', startDaysAgo: s, endDaysAgo: e });
+      };
+    }
+
+    function fetchPeriodOverview(spec) {
+      LAST_PERIOD_SPEC = spec;
+      google.script.run
+        .withSuccessHandler(renderPeriodOverview)
+        .withFailureHandler(showError)
+        .getOverviewForFilter(spec);
+    }
+
+    function renderPeriodOverview(result) {
+      document.getElementById('periodRangeLabel').textContent = 'Showing: ' + result.rangeLabel;
+
+      var container = document.getElementById('periodPersonCards');
+      container.innerHTML = '';
+      result.people.forEach(function (person) {
+        var total = result.totals[person] || 0;
+        var card = document.createElement('div');
+        card.className = 'card person-card';
+        if (result.hasPrevious) {
+          var prev = result.previousTotals[person] || 0;
+          var delta = fmtDelta(total - prev);
+          card.innerHTML =
+            '<div class="name">' + person + '</div>' +
+            '<div class="count">' + total + '</div>' +
+            '<div class="rows"><span>Previous period: ' + prev + '</span>' +
+            '<span class="delta ' + delta.cls + '">' + delta.text + '</span></div>';
+        } else {
+          card.innerHTML = '<div class="name">' + person + '</div><div class="count">' + total + '</div>';
+        }
+        container.appendChild(card);
+      });
+
+      var labels = result.bucketKeys.map(function (b) {
+        if (result.granularity === 'chunk') return shortWeekLabel(b.startKey) + '–' + shortWeekLabel(b.endKey);
+        if (result.granularity === 'month') return monthLabel(b);
+        return weekRangeLabel(b);
+      });
+      var datasets = result.people.map(function (person) {
+        return { label: person, data: result.trend[person], backgroundColor: colorFor(person, result.people) };
+      });
+      destroyChart('periodTrend');
+      charts.periodTrend = new Chart(document.getElementById('periodTrendChart'), {
+        type: 'bar',
+        data: { labels: labels, datasets: datasets },
+        options: {
+          responsive: true,
+          plugins: { legend: { position: 'bottom' }, datalabels: BAR_DATALABELS },
+          scales: { y: { beginAtZero: true, ticks: { precision: 0 }, grace: '12%' } }
+        }
+      });
+
+      renderBarChart('periodAccountChart', result.accountBreakdown, function (k) { return accountLabel(result, k); });
+      renderBarChart('periodTypeChart', result.creativeTypeBreakdown, null, function (k) { return typeColor(result, k); });
     }
 
     function renderBarChart(canvasId, breakdownObj, labelFn, colorFn) {
@@ -988,6 +1124,17 @@
       renderWeekSection(data);
       renderMonthSection(data);
       renderComparisonSection(data);
+
+      bindCustomRangeControlsOnce();
+      if (!SELECTED_PERIOD_KEY) {
+        SELECTED_PERIOD_KEY = data.months[data.months.length - 1];
+        LAST_PERIOD_SPEC = { type: 'month', month: SELECTED_PERIOD_KEY };
+      }
+      renderPeriodFilterTabs(data);
+      document.getElementById('customRangeBox').style.display = SELECTED_PERIOD_KEY === 'custom' ? 'block' : 'none';
+      // Re-fetch on every render (including after Refresh) so this section
+      // reflects the latest sync, keeping whichever filter was last chosen.
+      fetchPeriodOverview(LAST_PERIOD_SPEC);
     }
 
     function loadDashboard() {
