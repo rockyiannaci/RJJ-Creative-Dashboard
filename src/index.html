@@ -311,6 +311,10 @@
       max-height: 36px;
       max-width: 150px;
     }
+    .target-card .logo.logo-sm {
+      max-height: 21px;
+      max-width: 110px;
+    }
     .target-card .logo-with-label {
       display: flex;
       align-items: center;
@@ -742,7 +746,11 @@
           nameHtml = '<span class="logo-with-label"><img class="logo logo-lg" src="' + logoSrc + '" alt="' + s.label + '">' +
             '<span class="logo-suffix">' + s.label + '</span></span>';
         } else if (logoSrc) {
-          nameHtml = '<img class="logo" src="' + logoSrc + '" alt="' + s.label + '">';
+          // Refloor's wordmark is visually heavier (bolder, less internal
+          // whitespace) than the others, so it reads larger at the same
+          // pixel height; render it slightly smaller to match.
+          var logoClass = s.account === 'Refloor' ? 'logo logo-sm' : 'logo';
+          nameHtml = '<img class="' + logoClass + '" src="' + logoSrc + '" alt="' + s.label + '">';
         } else {
           nameHtml = '<span class="name">' + s.label + '</span>';
         }
