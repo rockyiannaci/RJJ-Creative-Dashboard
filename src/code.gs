@@ -380,6 +380,17 @@ function getDashboardData() {
 
   var accountBenchmarkResult = computeAccountBenchmarks_(rows, podConfig);
 
+  // Per-account creative-type x person matrix, over the trailing window:
+  // for a given client, how many of each creative type did each media
+  // buyer submit. Powers the Client Detail tab's breakdown table.
+  var accountTypeByPersonMatrix = {};
+  podConfig.accounts.forEach(function (account) {
+    var accountRows = trailingRows.filter(function (r) {
+      return r.account === account;
+    });
+    accountTypeByPersonMatrix[account] = buildTypePersonMatrix_(accountRows);
+  });
+
   // Per-person detail: weekly volume, and account / creative-type
   // breakdowns over the trailing window, for the person-detail tabs.
   var perPerson = {};
@@ -423,6 +434,7 @@ function getDashboardData() {
     comparisonPeriods: comparisonPeriods,
     comparisonByAccountByPeriod: comparisonByAccountByPeriod,
     accountBenchmarks: accountBenchmarkResult.benchmarks,
+    accountTypeByPersonMatrix: accountTypeByPersonMatrix,
     benchmarkMonthsSpanned: accountBenchmarkResult.monthsSpanned,
     benchmarkWeeksSpanned: accountBenchmarkResult.weeksSpanned,
     benchmarkStartMonth: podConfig.benchmarkStartMonth || null,

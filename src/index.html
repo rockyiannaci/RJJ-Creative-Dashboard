@@ -319,7 +319,7 @@
     .target-card .logo-suffix {
       font-size: 12px;
       font-weight: 700;
-      color: var(--muted);
+      color: var(--text);
       white-space: nowrap;
       align-self: center;
     }
@@ -509,6 +509,34 @@
         </div>
       </div>
 
+      <div class="page-section" id="page-clientdetail">
+        <div class="tabs" id="clientTabs"></div>
+
+        <div class="card target-card" id="clientStatCard" style="margin-bottom: 16px; max-width: 320px;"></div>
+
+        <div class="detail-row">
+          <div class="card chart-card">
+            <h2>Weekly Volume by Media Buyer</h2>
+            <canvas id="clientWeeklyChart"></canvas>
+          </div>
+          <div class="card chart-card">
+            <h2><span id="clientMonthLabel"></span> Volume by Media Buyer</h2>
+            <canvas id="clientMonthlyByPersonChart"></canvas>
+          </div>
+          <div class="card chart-card">
+            <h2>By Creative Type (last <span id="clientWeekCount"></span> weeks)</h2>
+            <canvas id="clientTypeChart"></canvas>
+          </div>
+        </div>
+
+        <div class="detail-section">
+          <div class="section-title">Creative Type by Media Buyer (last <span id="clientWeekCount2"></span> weeks)</div>
+          <div class="card">
+            <table class="matrix-table" id="clientTypeByPersonTable"></table>
+          </div>
+        </div>
+      </div>
+
       <div class="page-section" id="page-matrix">
         <div class="detail-section">
           <div class="section-title">Weekly Breakdown by Account &amp; Media Buyer</div>
@@ -612,10 +640,22 @@
     var NAV_SECTIONS = [
       { id: 'overview', label: 'Overview' },
       { id: 'detail', label: 'Media Buyer Detail' },
+      { id: 'clientdetail', label: 'Client Detail' },
       { id: 'matrix', label: 'Weekly & Monthly Matrix' },
       { id: 'comparison', label: 'Performance Comparison' }
     ];
     var ACTIVE_SECTION = 'overview';
+
+    // Shared by the nav tabs themselves and by clicking through from a
+    // card elsewhere on the dashboard (a client square, a media-buyer
+    // square) straight into that section's detail view.
+    function navigateToSection(sectionId) {
+      ACTIVE_SECTION = sectionId;
+      renderNavTabs();
+      NAV_SECTIONS.forEach(function (s) {
+        document.getElementById('page-' + s.id).classList.toggle('active', s.id === sectionId);
+      });
+    }
 
     function renderNavTabs() {
       var container = document.getElementById('navTabs');
@@ -624,13 +664,7 @@
         var btn = document.createElement('button');
         btn.className = 'nav-tab-btn' + (section.id === ACTIVE_SECTION ? ' active' : '');
         btn.textContent = section.label;
-        btn.onclick = function () {
-          ACTIVE_SECTION = section.id;
-          renderNavTabs();
-          NAV_SECTIONS.forEach(function (s) {
-            document.getElementById('page-' + s.id).classList.toggle('active', s.id === section.id);
-          });
-        };
+        btn.onclick = function () { navigateToSection(section.id); };
         container.appendChild(btn);
       });
     }
@@ -689,6 +723,13 @@
       computeTargetStats(data).forEach(function (s) {
         var card = document.createElement('div');
         card.className = 'card target-card';
+        card.style.cursor = 'pointer';
+        card.onclick = function () {
+          SELECTED_CLIENT = s.account;
+          navigateToSection('clientdetail');
+          renderClientTabs(data);
+          renderClientDetail(data, s.account);
+        };
         var barColor = s.status.key === 'met' ? 'var(--up)' :
           (s.status.key === 'near' ? 'var(--warn)' : (s.status.key === 'none' ? 'var(--muted)' : 'var(--down)'));
         var barPct = Math.min(100, s.pct);
@@ -749,6 +790,13 @@
         var card = document.createElement('div');
         card.className = 'card person-card';
         card.style.setProperty('--person-color', colorFor(person, data.people));
+        card.style.cursor = 'pointer';
+        card.onclick = function () {
+          SELECTED_PERSON = person;
+          navigateToSection('detail');
+          renderPersonTabs(data);
+          renderPersonDetail(data, person);
+        };
         card.innerHTML =
           '<div class="name"><span class="dot"></span>' + person + '</div>' +
           '<div class="count">' + thisWeek + '</div>' +
@@ -1235,6 +1283,141 @@
       renderMatrixTable('monthMatrixTable', data, data.monthlyMatrix[SELECTED_MONTH]);
     }
 
+    // ---------- Client Detail (full breakdown for one account) ----------
+    var SELECTED_CLIENT = null;
+
+    function renderClientTabs(data) {
+      var container = document.getElementById('clientTabs');
+      container.innerHTML = '';
+      data.accounts.forEach(function (account) {
+        var btn = document.createElement('button');
+        btn.className = 'tab-btn' + (account === SELECTED_CLIENT ? ' active' : '');
+        btn.textContent = accountLabel(data, account);
+        if (account === SELECTED_CLIENT) {
+          btn.style.background = 'var(--accent)';
+        }
+        btn.onclick = function () {
+          SELECTED_CLIENT = account;
+          renderClientTabs(data);
+          renderClientDetail(data, account);
+        };
+        container.appendChild(btn);
+      });
+    }
+
+    function renderTypeByPersonTable(tableId, data, matrix) {
+      var table = document.getElementById(tableId);
+      var typeKeys = data.creativeTypeOrder;
+
+      var maxCell = 0;
+      typeKeys.forEach(function (type) {
+        data.people.forEach(function (person) {
+          maxCell = Math.max(maxCell, matrix[type][person]);
+        });
+      });
+
+      var html = '<thead><tr><th>Creative Type</th>';
+      data.people.forEach(function (person) { html += '<th>' + person + '</th>'; });
+      html += '<th>Total</th></tr></thead><tbody>';
+
+      var personTotals = {};
+      data.people.forEach(function (p) { personTotals[p] = 0; });
+
+      typeKeys.forEach(function (type) {
+        var rowTotal = 0;
+        html += '<tr><td>' + type + '</td>';
+        data.people.forEach(function (person) {
+          var val = matrix[type][person];
+          rowTotal += val;
+          personTotals[person] += val;
+          var cls = val === 0 ? 'matrix-cell-value matrix-cell-zero' : 'matrix-cell-value';
+          html += '<td><span class="' + cls + '" style="background:' + cellShade(val, maxCell) + '">' + val + '</span></td>';
+        });
+        html += '<td><strong>' + rowTotal + '</strong></td></tr>';
+      });
+
+      html += '</tbody><tfoot><tr><td>Total</td>';
+      var grandTotal = 0;
+      data.people.forEach(function (person) {
+        grandTotal += personTotals[person];
+        html += '<td>' + personTotals[person] + '</td>';
+      });
+      html += '<td>' + grandTotal + '</td></tr></tfoot>';
+
+      table.innerHTML = html;
+    }
+
+    function renderClientDetail(data, account) {
+      document.getElementById('clientWeekCount').textContent = data.weeks.length;
+      document.getElementById('clientWeekCount2').textContent = data.weeks.length;
+      document.getElementById('clientMonthLabel').textContent = monthLabel(data.currentMonthKey);
+
+      // Target progress for this one account (reuses the same calc as the
+      // Overview cards / Performance Comparison table).
+      var stat = computeTargetStats(data).filter(function (s) { return s.account === account; })[0];
+      var statContainer = document.getElementById('clientStatCard');
+      var barColor = stat.status.key === 'met' ? 'var(--up)' :
+        (stat.status.key === 'near' ? 'var(--warn)' : (stat.status.key === 'none' ? 'var(--muted)' : 'var(--down)'));
+      statContainer.innerHTML =
+        '<div class="header"><span class="name">' + monthLabel(data.currentMonthKey) + ' Target Progress</span>' +
+        '<span class="status-chip ' + stat.status.key + '">' + stat.status.label + '</span></div>' +
+        '<div class="numbers">' + stat.actual + ' <span class="of-target">/ ' + stat.target + '</span></div>' +
+        '<div class="target-progress-track"><div class="target-progress-fill" style="width:' + Math.min(100, stat.pct) + '%; background:' + barColor + ';"></div></div>' +
+        '<div class="caption">' + (stat.remaining > 0 ? stat.remaining + ' more to hit target' : 'Target reached') + '</div>';
+
+      // Weekly volume by media buyer, for this account only.
+      var weeklyDatasets = data.people.map(function (person) {
+        return {
+          label: person,
+          data: data.weeks.map(function (week) { return data.weeklyMatrix[week][account][person]; }),
+          borderColor: colorFor(person, data.people),
+          backgroundColor: colorFor(person, data.people),
+          tension: 0.3,
+          fill: false
+        };
+      });
+      destroyChart('clientWeekly');
+      charts.clientWeekly = new Chart(document.getElementById('clientWeeklyChart'), {
+        type: 'line',
+        data: { labels: data.weeks.map(shortWeekLabel), datasets: weeklyDatasets },
+        options: {
+          responsive: true,
+          plugins: { legend: { position: 'bottom' } },
+          scales: { y: { beginAtZero: true, ticks: { precision: 0 } } }
+        }
+      });
+
+      // This month's volume by media buyer, for this account only.
+      var monthByPerson = data.monthlyMatrix[data.currentMonthKey][account];
+      destroyChart('clientMonthlyByPerson');
+      charts.clientMonthlyByPerson = new Chart(document.getElementById('clientMonthlyByPersonChart'), {
+        type: 'bar',
+        data: {
+          labels: data.people,
+          datasets: [{
+            data: data.people.map(function (p) { return monthByPerson[p]; }),
+            backgroundColor: data.people.map(function (p) { return colorFor(p, data.people); })
+          }]
+        },
+        options: {
+          responsive: true,
+          plugins: { legend: { display: false }, datalabels: BAR_DATALABELS },
+          scales: { y: { beginAtZero: true, ticks: { precision: 0 }, grace: '12%' } }
+        }
+      });
+
+      // Creative-type totals (all media buyers combined), for this account,
+      // over the trailing window.
+      var typeMatrix = data.accountTypeByPersonMatrix[account];
+      var typeTotals = {};
+      data.creativeTypeOrder.forEach(function (type) {
+        typeTotals[type] = data.people.reduce(function (sum, p) { return sum + typeMatrix[type][p]; }, 0);
+      });
+      renderBarChart('clientTypeChart', typeTotals, null, function (t) { return typeColor(data, t); });
+
+      renderTypeByPersonTable('clientTypeByPersonTable', data, typeMatrix);
+    }
+
     // ---------- Performance comparison (all media buyers side by side) ----------
     function renderGroupedComparisonChart(canvasId, data, comparisonMatrix, categoryKeys, categoryLabelFn) {
       var datasets = data.people.map(function (person) {
@@ -1336,6 +1519,9 @@
       if (!SELECTED_COMPARISON_PERIOD || data.comparisonPeriods.indexOf(SELECTED_COMPARISON_PERIOD) === -1) {
         SELECTED_COMPARISON_PERIOD = 'all';
       }
+      if (!SELECTED_CLIENT || data.accounts.indexOf(SELECTED_CLIENT) === -1) {
+        SELECTED_CLIENT = data.accounts[0];
+      }
 
       renderNavTabs();
       document.getElementById('page-' + ACTIVE_SECTION).classList.add('active');
@@ -1353,6 +1539,8 @@
       renderMonthlyTrendChart(data);
       renderPersonTabs(data);
       renderPersonDetail(data, SELECTED_PERSON);
+      renderClientTabs(data);
+      renderClientDetail(data, SELECTED_CLIENT);
       renderWeekSection(data);
       renderMonthSection(data);
       renderComparisonSection(data);
