@@ -304,6 +304,17 @@
       object-fit: contain;
       display: block;
     }
+    .target-card .logo-with-label {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .target-card .logo-suffix {
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--muted);
+      white-space: nowrap;
+    }
     .status-chip {
       font-size: 11px;
       font-weight: 700;
@@ -331,23 +342,6 @@
     }
     .target-progress-fill { height: 100%; border-radius: 999px; }
     .target-card .caption { font-size: 12px; color: var(--muted); margin-top: 8px; }
-    .target-card .caption-row {
-      display: flex;
-      justify-content: space-between;
-      align-items: baseline;
-      margin-top: 8px;
-      font-size: 12px;
-      color: var(--muted);
-      gap: 8px;
-    }
-    .target-card .account-tag {
-      font-weight: 700;
-      color: var(--text);
-      font-size: 11px;
-      text-transform: uppercase;
-      letter-spacing: 0.03em;
-      white-space: nowrap;
-    }
     .legend-row {
       display: flex;
       gap: 16px;
@@ -691,16 +685,24 @@
           (s.status.key === 'near' ? 'var(--warn)' : (s.status.key === 'none' ? 'var(--muted)' : 'var(--down)'));
         var barPct = Math.min(100, s.pct);
         var logoSrc = ACCOUNT_LOGOS[s.account];
-        var nameHtml = logoSrc
-          ? '<img class="logo" src="' + logoSrc + '" alt="' + s.label + '">'
-          : '<span class="name">' + s.label + '</span>';
+        var sharesLogo = s.account.indexOf('Renewal By Andersen') === 0;
+        var nameHtml;
+        if (logoSrc && sharesLogo) {
+          // The three RBA accounts share one logo, so a small text label
+          // next to it (GW / E NY / QC) is the only way to tell them apart.
+          nameHtml = '<span class="logo-with-label"><img class="logo" src="' + logoSrc + '" alt="' + s.label + '">' +
+            '<span class="logo-suffix">' + s.label + '</span></span>';
+        } else if (logoSrc) {
+          nameHtml = '<img class="logo" src="' + logoSrc + '" alt="' + s.label + '">';
+        } else {
+          nameHtml = '<span class="name">' + s.label + '</span>';
+        }
         card.innerHTML =
           '<div class="header">' + nameHtml +
           '<span class="status-chip ' + s.status.key + '">' + s.status.label + '</span></div>' +
           '<div class="numbers">' + s.actual + ' <span class="of-target">/ ' + s.target + '</span></div>' +
           '<div class="target-progress-track"><div class="target-progress-fill" style="width:' + barPct + '%; background:' + barColor + ';"></div></div>' +
-          '<div class="caption-row"><span class="account-tag">' + s.label + '</span>' +
-          '<span>' + (s.remaining > 0 ? s.remaining + ' more to hit target' : 'Target reached') + '</span></div>';
+          '<div class="caption">' + (s.remaining > 0 ? s.remaining + ' more to hit target' : 'Target reached') + '</div>';
         container.appendChild(card);
       });
     }
