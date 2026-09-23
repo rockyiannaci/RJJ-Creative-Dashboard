@@ -21,10 +21,10 @@ var POD_CONFIGS = {
     accounts: [
       'Refloor',
       'Leaf Home Enhancements',
+      'Bath Planet',
       'Renewal By Andersen - GW',
       'Renewal By Andersen - ENY',
-      'Renewal By Andersen - QC',
-      'Bath Planet'
+      'Renewal By Andersen - QC'
     ],
     // Short labels for the dashboard UI. Filtering still matches against
     // the real Asana "Client Name" values above; this only changes what's
