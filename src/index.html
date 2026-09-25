@@ -589,6 +589,42 @@
           </div>
         </div>
       </div>
+
+      <div class="page-section" id="page-adperf">
+        <div id="adPerfNotConfigured" style="display:none;">
+          <div class="card">
+            <h2>Ad Performance</h2>
+            <p class="sub" style="margin: 0;">
+              Not connected yet. This needs a BigQuery service account key added to
+              Script Properties as <code>BIGQUERY_SERVICE_ACCOUNT_KEY</code>, then
+              <code>syncAdPerformanceData()</code> run once from the Apps Script editor.
+              See the README for setup steps.
+            </p>
+          </div>
+        </div>
+
+        <div id="adPerfConnected" style="display:none;">
+          <header style="margin-bottom: 20px;">
+            <div class="sub" id="adPerfSyncLabel"></div>
+          </header>
+
+          <div class="grid" id="adPerfOverviewCards" style="grid-template-columns: repeat(4, 1fr); margin-bottom: 24px;"></div>
+
+          <div class="detail-section">
+            <div class="section-title">By Account (<span id="adPerfMonthLabelAccount"></span>)</div>
+            <div class="card">
+              <table class="matrix-table" id="adPerfAccountTable"></table>
+            </div>
+          </div>
+
+          <div class="detail-section">
+            <div class="section-title">By Media Buyer (<span id="adPerfMonthLabelPerson"></span>)</div>
+            <div class="card">
+              <table class="matrix-table" id="adPerfPersonTable"></table>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -646,7 +682,8 @@
       { id: 'detail', label: 'Media Buyer Detail' },
       { id: 'clientdetail', label: 'Client Detail' },
       { id: 'matrix', label: 'Weekly & Monthly Matrix' },
-      { id: 'comparison', label: 'Performance Comparison' }
+      { id: 'comparison', label: 'Performance Comparison' },
+      { id: 'adperf', label: 'Ad Performance' }
     ];
     var ACTIVE_SECTION = 'overview';
 
@@ -1572,6 +1609,67 @@
         .getDashboardData();
     }
 
+    // ---------- Ad Performance (BigQuery-backed, optional) ----------
+    function fmtMoney_(n) {
+      return '$' + Math.round(n).toLocaleString();
+    }
+    function fmtPct_(n) {
+      return (Math.round(n * 1000) / 10).toFixed(1) + '%';
+    }
+
+    function renderAdPerformance(result) {
+      if (!result || !result.configured) {
+        document.getElementById('adPerfNotConfigured').style.display = 'block';
+        document.getElementById('adPerfConnected').style.display = 'none';
+        return;
+      }
+      document.getElementById('adPerfNotConfigured').style.display = 'none';
+      document.getElementById('adPerfConnected').style.display = 'block';
+
+      document.getElementById('adPerfSyncLabel').textContent = result.lastAdSyncAt
+        ? 'Last synced: ' + new Date(result.lastAdSyncAt).toLocaleString()
+        : 'Not synced yet';
+      var monthText = monthLabel(result.currentMonthKey);
+      document.getElementById('adPerfMonthLabelAccount').textContent = monthText;
+      document.getElementById('adPerfMonthLabelPerson').textContent = monthText;
+
+      var o = result.overall;
+      var cards = document.getElementById('adPerfOverviewCards');
+      cards.innerHTML = '';
+      cards.appendChild(statCard('Spend', fmtMoney_(o.spend), monthText + ' to date'));
+      cards.appendChild(statCard('Leads', o.leads.toLocaleString(), monthText + ' to date'));
+      cards.appendChild(statCard('Cost / Lead', fmtMoney_(o.costPerLead)));
+      cards.appendChild(statCard('ROAS', o.roas.toFixed(2) + 'x'));
+
+      function metricsRow(label, m) {
+        return '<tr><td>' + label + '</td><td>' + fmtMoney_(m.spend) + '</td><td>' + m.leads.toLocaleString() +
+          '</td><td>' + m.sets.toLocaleString() + '</td><td>' + m.demos.toLocaleString() + '</td><td>' +
+          m.sold.toLocaleString() + '</td><td>' + fmtMoney_(m.costPerLead) + '</td><td>' + m.roas.toFixed(2) + 'x</td></tr>';
+      }
+      var headerRow = '<thead><tr><th></th><th>Spend</th><th>Leads</th><th>Sets</th><th>Demos</th><th>Sold</th><th>CPL</th><th>ROAS</th></tr></thead>';
+
+      var accountTable = document.getElementById('adPerfAccountTable');
+      var accountBody = result.accounts.map(function (a) {
+        return metricsRow(accountLabel(result, a), result.byAccount[a]);
+      }).join('');
+      accountTable.innerHTML = headerRow + '<tbody>' + accountBody + '</tbody>';
+
+      var personTable = document.getElementById('adPerfPersonTable');
+      var personBody = result.people.map(function (p) {
+        return metricsRow(p, result.byPerson[p]);
+      }).join('');
+      personTable.innerHTML = headerRow + '<tbody>' + personBody + '</tbody>';
+    }
+
+    function loadAdPerformance() {
+      google.script.run
+        .withSuccessHandler(renderAdPerformance)
+        .withFailureHandler(function () {
+          renderAdPerformance({ configured: false });
+        })
+        .getAdPerformanceData();
+    }
+
     function showError(err) {
       document.getElementById('loading').style.display = 'none';
       var el = document.getElementById('error');
@@ -1598,6 +1696,7 @@
     }
 
     loadDashboard();
+    loadAdPerformance();
   </script>
 </body>
 </html>

@@ -64,8 +64,52 @@ var POD_CONFIGS = {
       'Renewal By Andersen - ENY': 10,
       'Renewal By Andersen - QC': 3,
       'Bath Planet': 5
+    },
+    // Maps this pod's account keys and people to the exact string values
+    // BigQuery's client_name / media_buyer columns use, so ad performance
+    // data can be filtered to just this pod without touching the sync or
+    // dashboard logic. TODO: these are placeholders (identity mappings) —
+    // verify against real distinct values once BigQuery access exists;
+    // adPerformanceSyncLog will list any account/person that doesn't
+    // resolve, the same way the Asana SyncLog flags mismatched names.
+    adPerformanceClientNameMap: {
+      'Refloor': 'Refloor',
+      'Leaf Home Enhancements': 'Leaf Home Enhancements',
+      'Renewal By Andersen - GW': 'Renewal By Andersen - GW',
+      'Renewal By Andersen - ENY': 'Renewal By Andersen - ENY',
+      'Renewal By Andersen - QC': 'Renewal By Andersen - QC',
+      'Bath Planet': 'Bath Planet'
+    },
+    adPerformanceMediaBuyerMap: {
+      'Julian DiVito': 'Julian DiVito',
+      'Jay Jeong': 'Jay Jeong',
+      'Rocky Iannaci': 'Rocky Iannaci'
     }
   }
+};
+
+/**
+ * BigQuery connection details for the agency-wide ad performance data
+ * (Looker Studio's source tables). Not pod-specific — every pod's ad
+ * performance sync reads from the same project/table, filtered down via
+ * that pod's adPerformanceClientNameMap.
+ *
+ * TODO: confirm dataset/table against the live schema once the service
+ * account exists — table_facebook_ads_totals is the README's best guess
+ * at the underlying BigQuery table name (LSR's report only names it
+ * loosely as "table_facebook-ads-totals"), and podColumn/podValue need
+ * checking against real POD values (this pod may show up as "B3",
+ * "B3 (RJJ)", or something else entirely).
+ */
+var AD_PERFORMANCE_CONFIG = {
+  projectId: 'cdm-ads',
+  dataset: 'public',
+  table: 'table_facebook_ads_totals',
+  dateColumn: 'date_of_lead',
+  clientNameColumn: 'client_name',
+  mediaBuyerColumn: 'media_buyer',
+  podColumn: 'POD',
+  podValue: 'B3 (RJJ)'
 };
 
 // Which pod this deployment renders. Change this (or make it a query param
