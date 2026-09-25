@@ -92,33 +92,48 @@ next to brief volume, sourced from the same BigQuery tables Looker
 Studio's LSR report reads from — not via LSR itself. LSR's own connector
 (`lsr-mcp`) authenticates by reusing a signed-in Chrome session on a
 local machine; that only works for a local Claude Desktop session, not a
-cloud Apps Script web app, so this tab talks to BigQuery directly with a
-service account instead.
+cloud Apps Script web app, so this tab talks to BigQuery directly instead.
 
-**Setup:**
+**Setup — default path (the deploying user already has BigQuery access):**
 
-1. Someone with admin rights on the `cdm-ads` GCP project creates a
-   service account, grants it **BigQuery Data Viewer** on the dataset
-   containing the ad performance table and **BigQuery Job User** at the
-   project level, and generates a JSON key for it.
-2. Open the Apps Script editor and add that key as a Script Property:
-   - Key: `BIGQUERY_SERVICE_ACCOUNT_KEY`
-   - Value: the full JSON key file contents (paste it in directly — never
-     commit it to this repo or paste it into a chat).
-3. **Verify the config in `config.gs` before trusting any numbers.**
+If whoever deploys this web app already has BigQuery access to the
+`cdm-ads` project themselves (check at
+console.cloud.google.com/bigquery?project=cdm-ads), no service account is
+needed — `bigquery.gs` runs queries as that person via the built-in
+BigQuery Advanced Service (already enabled in `appsscript.json`).
+
+1. In the Apps Script editor, run any function once manually (e.g.
+   `syncAdPerformanceData`) — the first run shows an authorization screen
+   listing the added BigQuery scope; approve it. A web app or trigger
+   execution can't show this prompt itself, so it has to be a manual run.
+2. **Verify the config in `config.gs` before trusting any numbers.**
    `AD_PERFORMANCE_CONFIG` (dataset/table/column names) and each pod's
    `adPerformanceClientNameMap` / `adPerformanceMediaBuyerMap` are
    best-guess placeholders based on the LSR connector's captured schema —
-   they were never run against a live BigQuery connection. Run
-   `syncAdPerformanceData` once from the editor, then check the
-   `AdPerformanceSyncLog` tab: `unmapped_client_names_seen` and
-   `unmapped_media_buyers_seen` list any real BigQuery value that didn't
-   match the config, the same way `SyncLog` flags Asana name mismatches.
-   Fix the config and re-run until both are empty.
-4. Run `createAdPerformanceHourlyTrigger_` once to keep it refreshed
+   they were never run against a live BigQuery connection. After running
+   `syncAdPerformanceData`, check the `AdPerformanceSyncLog` tab:
+   `unmapped_client_names_seen` and `unmapped_media_buyers_seen` list any
+   real BigQuery value that didn't match the config, the same way
+   `SyncLog` flags Asana name mismatches. Fix the config and re-run until
+   both are empty.
+3. Run `createAdPerformanceHourlyTrigger_` once to keep it refreshed
    automatically. This is a separate trigger from the Asana sync's, by
    design — a BigQuery problem should never be able to take down the
    Asana-backed parts of the dashboard.
+
+**Setup — service account path (opt-in override):**
+
+Use this instead if the deploying user's own account shouldn't have
+standing BigQuery access. Someone with admin rights on the `cdm-ads` GCP
+project creates a service account, grants it **BigQuery Data Viewer** on
+the relevant dataset and **BigQuery Job User** at the project level, and
+generates a JSON key. Add that key as a Script Property:
+- Key: `BIGQUERY_SERVICE_ACCOUNT_KEY`
+- Value: the full JSON key file contents (paste it in directly — never
+  commit it to this repo or paste it into a chat).
+
+When this property is set, `bigquery.gs` uses it instead of the
+deploying user's own identity. Steps 2-3 above still apply.
 
 ## Adding a second pod (B1 or B2) later
 

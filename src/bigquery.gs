@@ -1,20 +1,26 @@
 /**
- * Minimal BigQuery REST client authenticated as a service account, since
- * Apps Script's built-in BigQuery Advanced Service only ever auths as the
- * script's own Google identity, not a service account. This signs its own
- * JWT and exchanges it for an OAuth access token (the standard "JWT
- * Bearer" flow), so any Google account with a service-account key granted
- * BigQuery access to the target project works, independent of who owns
- * this Apps Script project.
+ * BigQuery access, in two modes:
  *
- * The service account key JSON goes in Script Properties as
- * BIGQUERY_SERVICE_ACCOUNT_KEY — paste it there directly, never into code.
+ * 1. As the script's own Google identity (default) — via the built-in
+ *    BigQuery Advanced Service (see appsscript.json's enabledAdvancedServices).
+ *    Works as long as whoever deployed this web app has BigQuery Data
+ *    Viewer + Job User on the target project themselves. The first time
+ *    it runs, that person needs to run any function manually from the
+ *    Apps Script editor once to grant the added BigQuery scope — a web
+ *    app or trigger execution can't show that consent screen itself.
+ * 2. As a service account (opt-in) — if BIGQUERY_SERVICE_ACCOUNT_KEY is
+ *    set in Script Properties, that's used instead, independent of who
+ *    owns this Apps Script project. Useful if the deploying user's own
+ *    account shouldn't have standing BigQuery access. This signs its own
+ *    JWT and exchanges it for an OAuth token (the "JWT Bearer" flow) —
+ *    the service-account key JSON goes in Script Properties directly,
+ *    never into code.
  */
 
 var BIGQUERY_TOKEN_URL = 'https://oauth2.googleapis.com/token';
 var BIGQUERY_SCOPE = 'https://www.googleapis.com/auth/bigquery.readonly';
 
-function isBigQueryConfigured_() {
+function hasBigQueryServiceAccountKey_() {
   return !!PropertiesService.getScriptProperties().getProperty('BIGQUERY_SERVICE_ACCOUNT_KEY');
 }
 
@@ -78,13 +84,35 @@ function getBigQueryAccessToken_() {
 }
 
 /**
- * Runs a SQL query via the BigQuery REST API (jobs.query, synchronous) and
- * returns rows as plain objects keyed by column name. Handles BigQuery's
- * columnar-ish { schema, rows: [{f: [{v}, ...]}] } response shape and its
- * "still running" pagination (rare for these aggregate queries, but a
- * table scan could take longer than the default timeout).
+ * Runs a SQL query against BigQuery and returns rows as plain objects
+ * keyed by column name. Uses the service account (JWT) path if a key is
+ * configured, otherwise runs as the script's own Google identity via the
+ * built-in BigQuery Advanced Service. Both return the same
+ * { schema, rows: [{f: [{v}, ...]}] } shape, parsed identically.
  */
 function runBigQueryQuery_(projectId, sql) {
+  var body = hasBigQueryServiceAccountKey_()
+    ? runBigQueryQueryViaServiceAccount_(projectId, sql)
+    : runBigQueryQueryAsSelf_(projectId, sql);
+
+  if (!body.jobComplete) {
+    throw new Error('BigQuery query did not complete within the timeout. Try narrowing the date range.');
+  }
+
+  var fieldNames = (body.schema && body.schema.fields ? body.schema.fields : []).map(function (f) {
+    return f.name;
+  });
+
+  return (body.rows || []).map(function (row) {
+    var obj = {};
+    row.f.forEach(function (cell, i) {
+      obj[fieldNames[i]] = cell.v;
+    });
+    return obj;
+  });
+}
+
+function runBigQueryQueryViaServiceAccount_(projectId, sql) {
   var token = getBigQueryAccessToken_();
   var url = 'https://bigquery.googleapis.com/bigquery/v2/projects/' + encodeURIComponent(projectId) + '/queries';
 
@@ -105,22 +133,18 @@ function runBigQueryQuery_(projectId, sql) {
     throw new Error('BigQuery query failed (' + code + '): ' + response.getContentText());
   }
 
-  var body = JSON.parse(response.getContentText());
-  if (!body.jobComplete) {
-    throw new Error('BigQuery query did not complete within the timeout. Try narrowing the date range.');
-  }
+  return JSON.parse(response.getContentText());
+}
 
-  var fieldNames = (body.schema && body.schema.fields ? body.schema.fields : []).map(function (f) {
-    return f.name;
-  });
-
-  return (body.rows || []).map(function (row) {
-    var obj = {};
-    row.f.forEach(function (cell, i) {
-      obj[fieldNames[i]] = cell.v;
-    });
-    return obj;
-  });
+/**
+ * Runs as the script's own Google identity via the BigQuery Advanced
+ * Service. Requires that identity to have BigQuery Data Viewer + Job
+ * User on `projectId` — an IAM check Google makes, not something this
+ * script can grant itself.
+ */
+function runBigQueryQueryAsSelf_(projectId, sql) {
+  var request = { query: sql, useLegacySql: false, timeoutMs: 30000 };
+  return BigQuery.Jobs.query(request, projectId);
 }
 
 /**

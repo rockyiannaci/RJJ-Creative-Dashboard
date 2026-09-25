@@ -111,13 +111,6 @@ function writeAdLogSheet_(ss, podConfig, aggregate) {
  * take down the Asana sync it runs alongside.
  */
 function syncAdPerformanceData() {
-  if (!isBigQueryConfigured_()) {
-    throw new Error(
-      'BIGQUERY_SERVICE_ACCOUNT_KEY is not set yet — see README for how to add the ' +
-        'service account key before running this sync.'
-    );
-  }
-
   var podConfig = getActivePodConfig();
   var sql = buildAdPerformanceQuery_(podConfig);
   var rawRows = runBigQueryQuery_(AD_PERFORMANCE_CONFIG.projectId, sql);
@@ -214,12 +207,13 @@ function computeAdMetrics_(rows) {
 }
 
 /**
- * Called by the dashboard's Ad Performance tab. Returns configured: false
- * (no BigQuery call, no error) until the service account key is set, so
- * the rest of the dashboard is never blocked on this.
+ * Called by the dashboard's Ad Performance tab. Never calls BigQuery —
+ * only reads whatever syncAdPerformanceData() last wrote. Returns
+ * configured: false until that sync has run at least once, so the rest
+ * of the dashboard is never blocked on this.
  */
 function getAdPerformanceData() {
-  if (!isBigQueryConfigured_()) {
+  if (!PropertiesService.getScriptProperties().getProperty('LAST_AD_SYNC_AT')) {
     return { configured: false };
   }
 
