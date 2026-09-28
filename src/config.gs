@@ -68,18 +68,20 @@ var POD_CONFIGS = {
     // Maps this pod's account keys and people to the exact string values
     // BigQuery's client_name / media_buyer columns use, so ad performance
     // data can be filtered to just this pod without touching the sync or
-    // dashboard logic. TODO: these are placeholders (identity mappings) —
-    // verify against real distinct values once BigQuery access exists;
-    // adPerformanceSyncLog will list any account/person that doesn't
-    // resolve, the same way the Asana SyncLog flags mismatched names.
+    // dashboard logic. Client names confirmed against the live table;
+    // media buyer names are still a placeholder guess — see the TODO below.
     adPerformanceClientNameMap: {
-      'Refloor': 'Refloor',
-      'Leaf Home Enhancements': 'Leaf Home Enhancements',
-      'Renewal By Andersen - GW': 'Renewal By Andersen - GW',
-      'Renewal By Andersen - ENY': 'Renewal By Andersen - ENY',
-      'Renewal By Andersen - QC': 'Renewal By Andersen - QC',
-      'Bath Planet': 'Bath Planet'
+      'Refloor': 'Refloor Flooring',
+      'Leaf Home Enhancements': 'Leaf Home Bath',
+      'Renewal By Andersen - GW': 'Renewal by Andersen GW Windows',
+      'Renewal By Andersen - ENY': 'Renewal by Andersen of Eastern NY Windows',
+      'Renewal By Andersen - QC': 'Renewal by Andersen Quad Cities Windows',
+      'Bath Planet': 'Bath Planet Local'
     },
+    // TODO: verify these against real distinct media_buyer values once a
+    // sync returns rows — adPerformanceSyncLog's unmapped_media_buyers_seen
+    // will list any that don't resolve, the same way Asana's SyncLog flags
+    // mismatched names.
     adPerformanceMediaBuyerMap: {
       'Julian DiVito': 'Julian DiVito',
       'Jay Jeong': 'Jay Jeong',
