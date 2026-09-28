@@ -295,6 +295,7 @@ function buildCreativePerformanceQuery_(podConfig) {
     'SELECT',
     "  REGEXP_EXTRACT(ad_name, '" + CRTV_REGEX + "') AS crtv_code,",
     '  ' + cfg.clientNameColumn + ' AS client_name,',
+    "  FORMAT_DATE('%Y-%m', " + cfg.dateColumn + ') AS month,',
     '  SUM(total_spend) AS total_spend,',
     '  SUM(count_leads) AS count_leads,',
     '  SUM(count_set) AS count_set,',
@@ -305,7 +306,7 @@ function buildCreativePerformanceQuery_(podConfig) {
     'WHERE ' + cfg.dateColumn + ' >= ' + bqStringLiteral_(sinceDate),
     '  AND ' + cfg.clientNameColumn + ' IN (' + clientNames.join(', ') + ')',
     "  AND REGEXP_CONTAINS(ad_name, '" + CRTV_REGEX + "')",
-    'GROUP BY crtv_code, client_name'
+    'GROUP BY crtv_code, client_name, month'
   ].join('\n');
 }
 
@@ -313,6 +314,7 @@ function writeCreativeDataSheet_(ss, rows) {
   var sheet = getOrCreateSheetTab_(ss, CREATIVE_SHEET_NAME, [
     'crtv_code',
     'client_name',
+    'month',
     'total_spend',
     'count_leads',
     'count_set',
@@ -347,6 +349,7 @@ function syncCreativePerformanceData() {
       return [
         r.crtv_code,
         r.client_name,
+        r.month,
         Number(r.total_spend || 0),
         Number(r.count_leads || 0),
         Number(r.count_set || 0),
@@ -381,17 +384,18 @@ function readCreativePerformanceRows_() {
   var sheet = SpreadsheetApp.openById(sheetId).getSheetByName(CREATIVE_SHEET_NAME);
   if (!sheet || sheet.getLastRow() < 2) return [];
 
-  var values = sheet.getRange(2, 1, sheet.getLastRow() - 1, 8).getValues();
+  var values = sheet.getRange(2, 1, sheet.getLastRow() - 1, 9).getValues();
   return values.map(function (r) {
     return {
       crtvCode: String(r[0] || '').trim().toUpperCase(),
       clientName: r[1],
-      spend: r[2],
-      leads: r[3],
-      sets: r[4],
-      demos: r[5],
-      sold: r[6],
-      revenue: r[7]
+      month: r[2],
+      spend: r[3],
+      leads: r[4],
+      sets: r[5],
+      demos: r[6],
+      sold: r[7],
+      revenue: r[8]
     };
   });
 }
@@ -455,41 +459,40 @@ function getCreativePerformanceData() {
     }
   });
 
-  var byPerson = {};
-  podConfig.people.forEach(function (person) {
-    byPerson[person] = [];
-  });
-
-  creativeRows.forEach(function (c) {
+  // Only creatives with a matching brief by a person in this pod count
+  // toward any month's totals.
+  var matchedRows = creativeRows.filter(function (c) {
     var brief = briefByCode[c.crtvCode];
-    if (!brief || podConfig.people.indexOf(brief.person) === -1) {
-      return;
-    }
-    byPerson[brief.person].push({
-      crtvCode: c.crtvCode,
-      account: brief.account,
-      briefName: brief.name,
-      creativeType: brief.creativeType,
-      metrics: computeCreativeMetrics_({
-        spend: c.spend,
-        leads: c.leads,
-        sets: c.sets,
-        demos: c.demos,
-        sold: c.sold,
-        revenue: c.revenue
-      })
-    });
+    return brief && podConfig.people.indexOf(brief.person) !== -1;
   });
 
-  var totalsByPerson = {};
-  podConfig.people.forEach(function (person) {
-    var rawTotals = sumCreativeTotals_(
-      creativeRows.filter(function (c) {
-        var brief = briefByCode[c.crtvCode];
-        return brief && brief.person === person;
+  var months = Object.keys(
+    matchedRows.reduce(function (acc, c) {
+      acc[c.month] = true;
+      return acc;
+    }, {})
+  ).sort();
+
+  function totalsForRows(rows) {
+    var totals = {};
+    podConfig.people.forEach(function (person) {
+      var rawTotals = sumCreativeTotals_(
+        rows.filter(function (c) {
+          return briefByCode[c.crtvCode].person === person;
+        })
+      );
+      totals[person] = computeCreativeMetrics_(rawTotals);
+    });
+    return totals;
+  }
+
+  var totalsByMonth = { all: totalsForRows(matchedRows) };
+  months.forEach(function (month) {
+    totalsByMonth[month] = totalsForRows(
+      matchedRows.filter(function (c) {
+        return c.month === month;
       })
     );
-    totalsByPerson[person] = computeCreativeMetrics_(rawTotals);
   });
 
   return {
@@ -497,7 +500,7 @@ function getCreativePerformanceData() {
     lastCreativeSyncAt: PropertiesService.getScriptProperties().getProperty('LAST_CREATIVE_SYNC_AT') || null,
     people: podConfig.people,
     accountDisplayNames: podConfig.accountDisplayNames || {},
-    byPerson: byPerson,
-    totalsByPerson: totalsByPerson
+    months: months,
+    totalsByMonth: totalsByMonth
   };
 }

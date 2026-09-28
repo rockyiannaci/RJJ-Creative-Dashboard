@@ -1700,7 +1700,7 @@
 
     // ---------- Creative Performance (CRTV-code-matched brief results) ----------
     var CREATIVE_PERF_DATA = null;
-    var SELECTED_CREATIVE_PERSON = null;
+    var SELECTED_CREATIVE_MONTH = 'all';
 
     var CREATIVE_METRIC_COLUMNS = [
       { key: 'lead', label: 'Lead', fmt: function (v) { return Math.round(v).toLocaleString(); } },
@@ -1718,56 +1718,52 @@
       { key: 'com', label: 'COM', fmt: fmtPct_ }
     ];
 
+    // "2026-04" -> "Apr 2026"
+    function creativeMonthLabel_(month) {
+      if (month === 'all') return 'All Time';
+      var parts = month.split('-');
+      var d = new Date(Number(parts[0]), Number(parts[1]) - 1, 1);
+      return d.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+    }
+
     function renderCreativePerfTabs(data) {
       var container = document.getElementById('creativePerfTabs');
       container.innerHTML = '';
-      data.people.forEach(function (person) {
+      var options = ['all'].concat(data.months);
+      options.forEach(function (month) {
         var btn = document.createElement('button');
-        btn.className = 'tab-btn' + (person === SELECTED_CREATIVE_PERSON ? ' active' : '');
-        btn.textContent = person;
-        if (person === SELECTED_CREATIVE_PERSON) {
-          btn.style.background = colorFor(person, data.people);
-        }
+        btn.className = 'tab-btn' + (month === SELECTED_CREATIVE_MONTH ? ' active' : '');
+        btn.textContent = creativeMonthLabel_(month);
         btn.onclick = function () {
-          SELECTED_CREATIVE_PERSON = person;
+          SELECTED_CREATIVE_MONTH = month;
           renderCreativePerfTabs(data);
-          renderCreativePerfTable(data, person);
+          renderCreativePerfTable(data, month);
         };
         container.appendChild(btn);
       });
     }
 
-    function renderCreativePerfTable(data, person) {
+    function renderCreativePerfTable(data, month) {
       var table = document.getElementById('creativePerfTable');
-      var creatives = data.byPerson[person] || [];
+      var totalsByPerson = data.totalsByMonth[month] || {};
 
-      var html = '<thead><tr><th>CRTV Code</th><th>Account</th><th>Brief</th>';
+      var html = '<thead><tr><th>Media Buyer</th>';
       CREATIVE_METRIC_COLUMNS.forEach(function (col) {
         html += '<th>' + col.label + '</th>';
       });
       html += '</tr></thead><tbody>';
 
-      if (creatives.length === 0) {
-        html += '<tr><td colspan="' + (3 + CREATIVE_METRIC_COLUMNS.length) +
-          '" style="color:var(--muted); text-align:center;">No matched creatives yet for ' + person + '</td></tr>';
-      }
-
-      creatives.forEach(function (c) {
-        html += '<tr><td>' + c.crtvCode + '</td><td>' + accountLabel(data, c.account) + '</td><td>' +
-          (c.briefName || '') + '</td>';
+      data.people.forEach(function (person) {
+        var metrics = totalsByPerson[person] || {};
+        html += '<tr><td style="font-weight:600; color:' + colorFor(person, data.people) + ';">' +
+          person + '</td>';
         CREATIVE_METRIC_COLUMNS.forEach(function (col) {
-          html += '<td>' + col.fmt(c.metrics[col.key]) + '</td>';
+          html += '<td>' + col.fmt(metrics[col.key] || 0) + '</td>';
         });
         html += '</tr>';
       });
 
-      html += '</tbody><tfoot><tr><td colspan="3">Total</td>';
-      var totals = data.totalsByPerson[person] || {};
-      CREATIVE_METRIC_COLUMNS.forEach(function (col) {
-        html += '<td>' + col.fmt(totals[col.key] || 0) + '</td>';
-      });
-      html += '</tr></tfoot>';
-
+      html += '</tbody>';
       table.innerHTML = html;
     }
 
@@ -1785,11 +1781,11 @@
         : 'Not synced yet';
 
       CREATIVE_PERF_DATA = result;
-      if (!SELECTED_CREATIVE_PERSON || result.people.indexOf(SELECTED_CREATIVE_PERSON) === -1) {
-        SELECTED_CREATIVE_PERSON = result.people[0];
+      if (SELECTED_CREATIVE_MONTH !== 'all' && result.months.indexOf(SELECTED_CREATIVE_MONTH) === -1) {
+        SELECTED_CREATIVE_MONTH = 'all';
       }
       renderCreativePerfTabs(result);
-      renderCreativePerfTable(result, SELECTED_CREATIVE_PERSON);
+      renderCreativePerfTable(result, SELECTED_CREATIVE_MONTH);
     }
 
     function loadCreativePerformance() {
