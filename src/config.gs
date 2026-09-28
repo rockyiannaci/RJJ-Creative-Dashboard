@@ -100,11 +100,20 @@ var POD_CONFIGS = {
  * loosely as "table_facebook-ads-totals"), and podColumn/podValue need
  * checking against real POD values (this pod may show up as "B3",
  * "B3 (RJJ)", or something else entirely).
+ *
+ * Confirmed against the live schema (cdm-ads.public.table_facebook-ads-totals):
+ * date_of_lead, client_id, client_name, currency, product, media_buyer,
+ * csm, active, POD, campaign_id/name, ad_set_id/name, ad_id, ad_name,
+ * total_spend, clicks, impressions, outbound_clicks, reach,
+ * landing_page_views, three_seconds_video_plays, facebook_likes,
+ * post_comments, post_shares, sum_revenue, count_set, count_demo,
+ * count_sold, count_duplicate, count_leads — table/column names below
+ * are all verified; podValue is still a guess.
  */
 var AD_PERFORMANCE_CONFIG = {
   projectId: 'cdm-ads',
   dataset: 'public',
-  table: 'table_facebook_ads_totals',
+  table: 'table_facebook-ads-totals',
   dateColumn: 'date_of_lead',
   clientNameColumn: 'client_name',
   mediaBuyerColumn: 'media_buyer',
