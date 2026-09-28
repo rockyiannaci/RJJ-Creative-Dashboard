@@ -265,8 +265,11 @@
     /* The metrics we actually act on (CPL, CPSet, CPD, Revenue, COM) —
        bigger and bolder than the rest so they stand out at a glance. */
     .matrix-table-compact .key-metric-cell {
-      font-size: 16px;
-      font-weight: 800;
+      font-size: 14.5px;
+      font-weight: 700;
+    }
+    .matrix-table-compact .buyer-cell {
+      width: 56px;
     }
     .buyer-dot {
       display: inline-block;
@@ -2017,7 +2020,7 @@
       }));
       var rows = sortByMetric_(filtered, CREATIVE_TOP_SORT).slice(0, 25);
 
-      var html = '<thead><tr><th>#</th><th style="text-align:left;">Creative Name</th><th style="text-align:left;">Media Buyer</th><th>Account</th>' +
+      var html = '<thead><tr><th>#</th><th style="text-align:left;">Creative Name</th><th class="buyer-cell" style="text-align:left;">Media Buyer</th><th>Account</th>' +
         sortableHeaderCellsHtml_(CREATIVE_TOP_SORT) + '</tr></thead><tbody>';
 
       if (rows.length === 0) {
@@ -2027,7 +2030,7 @@
 
       rows.forEach(function (c, i) {
         var color = colorFor(c.person, data.people);
-        html += '<tr><td>' + (i + 1) + '</td><td class="creative-name-cell" style="text-align:left;">' + (c.creativeName || '—') + '</td><td style="white-space:nowrap; text-align:left;">' +
+        html += '<tr><td>' + (i + 1) + '</td><td class="creative-name-cell" style="text-align:left;">' + (c.creativeName || '—') + '</td><td class="buyer-cell" style="white-space:nowrap; text-align:left;">' +
           '<span class="buyer-dot" style="background:' + color + ';"></span>' + personInitials_(c.person) + '</td><td>' +
           accountLabel(data, c.account) + '</td>';
         CREATIVE_METRIC_COLUMNS.forEach(function (col) {
@@ -2232,7 +2235,7 @@
       });
       var rows = sortByMetric_(withSpend, LAUNCH_SORT).slice(0, 25);
 
-      var html = '<thead><tr><th style="text-align:left;">Creative Name</th><th style="text-align:left;">Media Buyer</th><th>Account</th>' +
+      var html = '<thead><tr><th style="text-align:left;">Creative Name</th><th class="buyer-cell" style="text-align:left;">Media Buyer</th><th>Account</th>' +
         sortableHeaderCellsHtml_(LAUNCH_SORT) + '</tr></thead><tbody>';
 
       if (rows.length === 0) {
@@ -2244,7 +2247,7 @@
       rows.forEach(function (b) {
         var color = colorFor(b.person, data.people);
         html += '<tr><td class="creative-name-cell" style="text-align:left;">' + (b.creativeName || '—') +
-          '</td><td style="white-space:nowrap; text-align:left;"><span class="buyer-dot" style="background:' + color + ';"></span>' + personInitials_(b.person) +
+          '</td><td class="buyer-cell" style="white-space:nowrap; text-align:left;"><span class="buyer-dot" style="background:' + color + ';"></span>' + personInitials_(b.person) +
           '</td><td>' + accountLabel(data, b.account) + '</td>';
         CREATIVE_METRIC_COLUMNS.forEach(function (col) {
           var isActive = col.key === LAUNCH_SORT.key;
