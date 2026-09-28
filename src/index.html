@@ -2020,7 +2020,7 @@
       }));
       var rows = sortByMetric_(filtered, CREATIVE_TOP_SORT).slice(0, 25);
 
-      var html = '<thead><tr><th>#</th><th style="text-align:left;">Creative Name</th><th class="buyer-cell" style="text-align:left;">Media Buyer</th><th>Account</th>' +
+      var html = '<thead><tr><th>#</th><th style="text-align:left;">Creative Name</th><th class="buyer-cell" style="text-align:left;">MB</th><th>Account</th>' +
         sortableHeaderCellsHtml_(CREATIVE_TOP_SORT) + '</tr></thead><tbody>';
 
       if (rows.length === 0) {
@@ -2235,7 +2235,7 @@
       });
       var rows = sortByMetric_(withSpend, LAUNCH_SORT).slice(0, 25);
 
-      var html = '<thead><tr><th style="text-align:left;">Creative Name</th><th class="buyer-cell" style="text-align:left;">Media Buyer</th><th>Account</th>' +
+      var html = '<thead><tr><th style="text-align:left;">Creative Name</th><th class="buyer-cell" style="text-align:left;">MB</th><th>Account</th>' +
         sortableHeaderCellsHtml_(LAUNCH_SORT) + '</tr></thead><tbody>';
 
       if (rows.length === 0) {
