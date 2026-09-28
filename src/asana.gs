@@ -5,7 +5,7 @@
 
 var ASANA_API_BASE = 'https://app.asana.com/api/1.0';
 var ASANA_TASK_OPT_FIELDS =
-  'name,created_at,created_by.name,custom_fields.name,custom_fields.display_value,completed';
+  'name,created_at,created_by.name,custom_fields.name,custom_fields.display_value,completed,due_on';
 
 function getAsanaToken_() {
   var token = PropertiesService.getScriptProperties().getProperty('ASANA_TOKEN');

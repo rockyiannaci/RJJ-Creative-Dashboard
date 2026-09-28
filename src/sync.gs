@@ -113,7 +113,8 @@ function filterAndAggregate_(tasks, podConfig) {
         account,
         creativeType,
         task.completed,
-        crtvCode
+        crtvCode,
+        task.due_on || ''
       ]);
     } else if (!accountMatches && !personMatches) {
       excludedByBoth++;
@@ -146,7 +147,8 @@ function writeDataSheet_(ss, rows) {
     'account',
     'creative_type',
     'completed',
-    'crtv_code'
+    'crtv_code',
+    'due_on'
   ]);
 
   // Clear everything below the header, then rewrite from scratch. The sheet
@@ -155,10 +157,12 @@ function writeDataSheet_(ss, rows) {
     sheet.getRange(2, 1, sheet.getMaxRows() - 1, sheet.getMaxColumns()).clearContent();
   }
   if (rows.length > 0) {
-    // Force the week_start column (D) to plain text so Sheets doesn't
-    // auto-convert "yyyy-MM-dd" strings into Date cells, which would make
-    // the dashboard's string-based week comparisons fail silently.
+    // Force the week_start (D) and due_on (J) columns to plain text so
+    // Sheets doesn't auto-convert "yyyy-MM-dd" strings into Date cells,
+    // which would make the dashboard's string-based date comparisons fail
+    // silently.
     sheet.getRange(2, 4, rows.length, 1).setNumberFormat('@');
+    sheet.getRange(2, 10, rows.length, 1).setNumberFormat('@');
     sheet.getRange(2, 1, rows.length, rows[0].length).setValues(rows);
   }
 }

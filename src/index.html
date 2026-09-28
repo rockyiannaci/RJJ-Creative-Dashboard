@@ -698,6 +698,15 @@
           <div class="card" style="overflow-x:auto;">
             <table class="matrix-table" id="creativePerfTopTable"></table>
           </div>
+
+          <div class="section-title" style="margin-top: 28px;">
+            Recently Launched Creatives
+            <span style="font-weight: 400; color: var(--muted); font-size: 12px;">*by Asana due date, last 35 days</span>
+          </div>
+          <div class="week-tabs" id="recentLaunchAccountTabs"></div>
+          <div class="card" style="overflow-x:auto;">
+            <table class="matrix-table" id="recentLaunchTable"></table>
+          </div>
         </div>
       </div>
     </div>
@@ -2154,9 +2163,83 @@
         .refreshData();
     }
 
+    // ---------- Recently Launched Creatives (last 35 days by Asana due date) ----------
+    var SELECTED_LAUNCH_ACCOUNT = null;
+    var RECENT_LAUNCH_DATA = null;
+
+    function renderRecentLaunchTabs(data) {
+      var container = document.getElementById('recentLaunchAccountTabs');
+      container.innerHTML = '';
+      data.accounts.forEach(function (account) {
+        var btn = document.createElement('button');
+        btn.className = 'week-tab-btn' + (account === SELECTED_LAUNCH_ACCOUNT ? ' active' : '');
+        btn.textContent = accountLabel(data, account);
+        btn.onclick = function () {
+          SELECTED_LAUNCH_ACCOUNT = account;
+          renderRecentLaunchTabs(data);
+          renderRecentLaunchTable(data, account);
+        };
+        container.appendChild(btn);
+      });
+    }
+
+    function renderRecentLaunchTable(data, account) {
+      var table = document.getElementById('recentLaunchTable');
+      var rows = (data.byAccount[account] || []);
+
+      var html = '<thead><tr><th>Due Date</th><th style="text-align:left;">Brief</th><th>Media Buyer</th>';
+      CREATIVE_METRIC_COLUMNS.forEach(function (col) {
+        html += '<th>' + col.label + '</th>';
+      });
+      html += '</tr></thead><tbody>';
+
+      if (rows.length === 0) {
+        html += '<tr><td colspan="' + (3 + CREATIVE_METRIC_COLUMNS.length) +
+          '" style="color:var(--muted); text-align:center;">No briefs due in the last ' +
+          data.windowDays + ' days for ' + accountLabel(data, account) + '</td></tr>';
+      }
+
+      rows.forEach(function (b) {
+        var color = colorFor(b.person, data.people);
+        html += '<tr><td>' + b.dueOn + '</td><td style="text-align:left;">' + (b.briefName || '') +
+          '</td><td><span class="buyer-dot" style="background:' + color + ';"></span>' + b.person + '</td>';
+        CREATIVE_METRIC_COLUMNS.forEach(function (col) {
+          html += '<td>' + col.fmt(b.metrics[col.key]) + '</td>';
+        });
+        html += '</tr>';
+      });
+
+      html += '</tbody>';
+      table.innerHTML = html;
+    }
+
+    function renderRecentLaunches(result) {
+      if (!result || !result.configured) {
+        document.getElementById('recentLaunchAccountTabs').innerHTML = '';
+        document.getElementById('recentLaunchTable').innerHTML = '';
+        return;
+      }
+      RECENT_LAUNCH_DATA = result;
+      if (!SELECTED_LAUNCH_ACCOUNT || result.accounts.indexOf(SELECTED_LAUNCH_ACCOUNT) === -1) {
+        SELECTED_LAUNCH_ACCOUNT = result.accounts[0];
+      }
+      renderRecentLaunchTabs(result);
+      renderRecentLaunchTable(result, SELECTED_LAUNCH_ACCOUNT);
+    }
+
+    function loadRecentLaunches() {
+      google.script.run
+        .withSuccessHandler(renderRecentLaunches)
+        .withFailureHandler(function () {
+          renderRecentLaunches({ configured: false });
+        })
+        .getRecentlyLaunchedCreatives();
+    }
+
     loadDashboard();
     loadAdPerformance();
     loadCreativePerformance();
+    loadRecentLaunches();
   </script>
 </body>
 </html>

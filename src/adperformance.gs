@@ -667,3 +667,74 @@ function getCreativePerformanceData() {
     totalsByMonth: totalsByMonth
   };
 }
+
+var RECENTLY_LAUNCHED_WINDOW_DAYS = 35;
+
+/**
+ * Called by the dashboard's "Recently Launched Creatives" section. A brief
+ * counts as recently launched if its Asana due date falls within the last
+ * RECENTLY_LAUNCHED_WINDOW_DAYS days — due_on is what the pod actually
+ * treats as a creative's launch date, not created_at. Performance is
+ * summed across every ad tied to that brief's CRTV code (all its geo/status
+ * variants), since this reports on the BRIEF as a unit, not one specific ad
+ * execution the way the Top 25 table does.
+ */
+function getRecentlyLaunchedCreatives() {
+  if (!PropertiesService.getScriptProperties().getProperty('LAST_SYNC_AT')) {
+    return { configured: false };
+  }
+
+  var podConfig = getActivePodConfig();
+  var briefRows = readDataRows_();
+  var creativeRows = readCreativePerformanceRows_();
+
+  var cutoff = Utilities.formatDate(
+    new Date(Date.now() - RECENTLY_LAUNCHED_WINDOW_DAYS * 86400000),
+    Session.getScriptTimeZone(),
+    'yyyy-MM-dd'
+  );
+  var today = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd');
+
+  var recentBriefs = briefRows.filter(function (b) {
+    return b.crtvCode && b.dueOn && b.dueOn >= cutoff && b.dueOn <= today;
+  });
+
+  var byAccount = {};
+  podConfig.accounts.forEach(function (account) {
+    byAccount[account] = [];
+  });
+
+  recentBriefs.forEach(function (b) {
+    var code = String(b.crtvCode || '').trim().toUpperCase();
+    var expectedClientName = podConfig.adPerformanceClientNameMap[b.account];
+    var matchingAdRows = creativeRows.filter(function (c) {
+      return c.crtvCode === code && c.clientName === expectedClientName;
+    });
+    var rawTotals = sumCreativeTotals_(matchingAdRows);
+
+    if (!byAccount[b.account]) byAccount[b.account] = [];
+    byAccount[b.account].push({
+      crtvCode: code,
+      briefName: b.name,
+      dueOn: b.dueOn,
+      person: b.person,
+      creativeType: b.creativeType,
+      metrics: computeCreativeMetrics_(rawTotals)
+    });
+  });
+
+  Object.keys(byAccount).forEach(function (account) {
+    byAccount[account].sort(function (a, b) {
+      return a.dueOn < b.dueOn ? 1 : a.dueOn > b.dueOn ? -1 : 0;
+    });
+  });
+
+  return {
+    configured: true,
+    windowDays: RECENTLY_LAUNCHED_WINDOW_DAYS,
+    accounts: podConfig.accounts,
+    accountDisplayNames: podConfig.accountDisplayNames || {},
+    people: podConfig.people,
+    byAccount: byAccount
+  };
+}
