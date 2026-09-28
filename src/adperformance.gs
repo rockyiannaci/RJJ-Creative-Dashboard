@@ -294,7 +294,12 @@ function buildCreativePerformanceQuery_(podConfig) {
   return [
     'SELECT',
     "  REGEXP_EXTRACT(ad_name, '" + CRTV_REGEX + "') AS crtv_code,",
-    '  ad_name,',
+    // Facebook prefixes some ad names with a status marker (e.g. a green
+    // circle emoji) that isn't part of the creative's actual name — strip
+    // any leading non-alphanumeric characters so "🟢 Collage V19" and
+    // "Collage V19" group together as the same creative instead of
+    // splitting its revenue across two look-alike rows.
+    "  TRIM(REGEXP_REPLACE(ad_name, '^[^A-Za-z0-9]+', '')) AS ad_name,",
     '  ' + cfg.clientNameColumn + ' AS client_name,',
     "  FORMAT_DATE('%Y-%m', " + cfg.dateColumn + ') AS month,',
     '  SUM(total_spend) AS total_spend,',
