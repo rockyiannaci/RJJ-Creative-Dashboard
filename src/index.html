@@ -646,14 +646,11 @@
           </div>
 
           <div class="section-title" style="margin-top: 20px;">
-            Top 25 <span id="creativePerfTopMetricLabel"></span> Creatives (<span id="creativePerfTopMonthLabel"></span>)
+            Top 25 Creatives (<span id="creativePerfTopMonthLabel"></span>)
             <span id="creativePerfTopAllTimeNote" style="font-weight: 400; color: var(--muted); font-size: 12px;"></span>
           </div>
+          <p class="sub" style="margin: -6px 0 12px;">Click a metric column to sort by it; click again to flip ascending/descending.</p>
           <div style="display:flex; gap:20px; flex-wrap:wrap; margin-bottom: 12px; align-items:flex-end;">
-            <div>
-              <div class="sub" style="margin-bottom:6px;">Sort By</div>
-              <select id="creativePerfTopMetricSelect" class="tab-btn" style="cursor:pointer;"></select>
-            </div>
             <div>
               <div class="sub" style="margin-bottom:6px;">Media Buyer</div>
               <div class="tabs" id="creativePerfTopBuyerFilter" style="margin-bottom:0;"></div>
@@ -668,14 +665,11 @@
           </div>
 
           <div class="section-title" style="margin-top: 28px;">
-            Recently Launched Creatives — Top 25 <span id="recentLaunchMetricLabel"></span>
+            Recently Launched Creatives — Top 25
             <span style="font-weight: 400; color: var(--muted); font-size: 12px;">*by Asana due date, last 35 days</span>
           </div>
+          <p class="sub" style="margin: -6px 0 12px;">Click a metric column to sort by it; click again to flip ascending/descending.</p>
           <div style="display:flex; gap:20px; flex-wrap:wrap; margin-bottom: 12px; align-items:flex-end;">
-            <div>
-              <div class="sub" style="margin-bottom:6px;">Sort By</div>
-              <select id="recentLaunchMetricSelect" class="tab-btn" style="cursor:pointer;"></select>
-            </div>
             <div>
               <div class="sub" style="margin-bottom:6px;">Account</div>
               <div class="week-tabs" id="recentLaunchAccountTabs" style="margin-bottom:0;"></div>
@@ -1700,29 +1694,41 @@
       { key: 'com', label: 'COM', fmt: fmtPct_ }
     ];
 
-    function creativeMetricColumn_(key) {
-      for (var i = 0; i < CREATIVE_METRIC_COLUMNS.length; i++) {
-        if (CREATIVE_METRIC_COLUMNS[i].key === key) return CREATIVE_METRIC_COLUMNS[i];
-      }
-      return null;
+    // Click-to-sort metric column headers, Looker-Studio-style: a header
+    // cell's onclick sets it as the active sort key (descending first), or
+    // flips asc/desc if it's already the active key. Returns the <thead>
+    // cells' HTML; bindSortableHeaders_ wires up the clicks afterward since
+    // the cells are rendered as an innerHTML string.
+    function sortableHeaderCellsHtml_(sortState) {
+      return CREATIVE_METRIC_COLUMNS.map(function (col) {
+        var isActive = col.key === sortState.key;
+        var arrow = isActive ? (sortState.dir === 'desc' ? ' ▼' : ' ▲') : '';
+        var style = 'cursor:pointer; user-select:none;' + (isActive ? ' font-weight:800; color:var(--text);' : '');
+        return '<th data-sort-key="' + col.key + '" style="' + style + '">' + col.label + arrow + '</th>';
+      }).join('');
     }
 
-    function populateMetricSelect_(selectEl, selectedKey, onChange) {
-      selectEl.innerHTML = '';
-      CREATIVE_METRIC_COLUMNS.forEach(function (col) {
-        var opt = document.createElement('option');
-        opt.value = col.key;
-        opt.textContent = col.label;
-        if (col.key === selectedKey) opt.selected = true;
-        selectEl.appendChild(opt);
+    function bindSortableHeaders_(table, sortState, onSort) {
+      Array.prototype.forEach.call(table.querySelectorAll('th[data-sort-key]'), function (th) {
+        th.onclick = function () {
+          var key = th.getAttribute('data-sort-key');
+          if (sortState.key === key) {
+            sortState.dir = sortState.dir === 'desc' ? 'asc' : 'desc';
+          } else {
+            sortState.key = key;
+            sortState.dir = 'desc';
+          }
+          onSort();
+        };
       });
-      selectEl.onchange = function () { onChange(selectEl.value); };
     }
 
-    // The Top 25 table's other columns besides whichever metric it's
-    // currently sorted by, so that metric is always shown (moved to the
-    // front) without the table growing to all 13 columns.
-    var CREATIVE_TOP25_SECONDARY_METRICS = ['cpl', 'cpSet', 'cpd', 'revenue', 'fbSpend', 'com'];
+    function sortByMetric_(rows, sortState) {
+      return rows.slice().sort(function (a, b) {
+        var diff = a.metrics[sortState.key] - b.metrics[sortState.key];
+        return sortState.dir === 'desc' ? -diff : diff;
+      });
+    }
 
     // "2026-04" -> "Apr 2026"
     function creativeMonthLabel_(month) {
@@ -1901,14 +1907,9 @@
 
     var SELECTED_TOP_BUYER = 'all';
     var SELECTED_TOP_ACCOUNT = 'all';
-    var SELECTED_TOP_METRIC = 'revenue';
+    var CREATIVE_TOP_SORT = { key: 'revenue', dir: 'desc' };
 
     function renderCreativePerfTopFilters(data) {
-      populateMetricSelect_(document.getElementById('creativePerfTopMetricSelect'), SELECTED_TOP_METRIC, function (key) {
-        SELECTED_TOP_METRIC = key;
-        renderCreativePerfTopTable(data, SELECTED_CREATIVE_MONTH);
-      });
-
       var buyerContainer = document.getElementById('creativePerfTopBuyerFilter');
       buyerContainer.innerHTML = '';
       // Include any person actually appearing on a creative row here (e.g.
@@ -1957,31 +1958,22 @@
     }
 
     function renderCreativePerfTopTable(data, month) {
-      var sortCol = creativeMetricColumn_(SELECTED_TOP_METRIC);
-      document.getElementById('creativePerfTopMetricLabel').textContent = sortCol.label;
       document.getElementById('creativePerfTopMonthLabel').textContent = creativeMonthLabel_(month);
       document.getElementById('creativePerfTopAllTimeNote').textContent =
         month === 'all' ? ' *data since June 2026' : '';
       var table = document.getElementById('creativePerfTopTable');
-      var rows = aggregateCreatives_(data.creatives.filter(function (c) {
+      var filtered = aggregateCreatives_(data.creatives.filter(function (c) {
         return (month === 'all' || c.month === month) &&
           (SELECTED_TOP_BUYER === 'all' || c.person === SELECTED_TOP_BUYER) &&
           (SELECTED_TOP_ACCOUNT === 'all' || c.account === SELECTED_TOP_ACCOUNT);
-      })).sort(function (a, b) {
-        return b.metrics[SELECTED_TOP_METRIC] - a.metrics[SELECTED_TOP_METRIC];
-      }).slice(0, 25);
+      }));
+      var rows = sortByMetric_(filtered, CREATIVE_TOP_SORT).slice(0, 25);
 
-      var displayKeys = [SELECTED_TOP_METRIC].concat(
-        CREATIVE_TOP25_SECONDARY_METRICS.filter(function (k) { return k !== SELECTED_TOP_METRIC; })
-      );
-      var displayCols = displayKeys.map(creativeMetricColumn_);
-
-      var html = '<thead><tr><th>#</th><th style="text-align:left;">Creative Name</th><th>Media Buyer</th><th>Account</th>';
-      displayCols.forEach(function (col) { html += '<th>' + col.label + '</th>'; });
-      html += '</tr></thead><tbody>';
+      var html = '<thead><tr><th>#</th><th style="text-align:left;">Creative Name</th><th>Media Buyer</th><th>Account</th>' +
+        sortableHeaderCellsHtml_(CREATIVE_TOP_SORT) + '</tr></thead><tbody>';
 
       if (rows.length === 0) {
-        html += '<tr><td colspan="' + (4 + displayCols.length) +
+        html += '<tr><td colspan="' + (4 + CREATIVE_METRIC_COLUMNS.length) +
           '" style="color:var(--muted); text-align:center;">No matched creatives for this period</td></tr>';
       }
 
@@ -1990,12 +1982,16 @@
         html += '<tr><td>' + (i + 1) + '</td><td style="text-align:left;">' + (c.creativeName || '—') + '</td><td>' +
           '<span class="buyer-dot" style="background:' + color + ';"></span>' + c.person + '</td><td>' +
           accountLabel(data, c.account) + '</td>';
-        displayCols.forEach(function (col) { html += '<td>' + col.fmt(c.metrics[col.key]) + '</td>'; });
+        CREATIVE_METRIC_COLUMNS.forEach(function (col) {
+          var isActive = col.key === CREATIVE_TOP_SORT.key;
+          html += '<td style="' + (isActive ? 'font-weight:700;' : '') + '">' + col.fmt(c.metrics[col.key]) + '</td>';
+        });
         html += '</tr>';
       });
 
       html += '</tbody>';
       table.innerHTML = html;
+      bindSortableHeaders_(table, CREATIVE_TOP_SORT, function () { renderCreativePerfTopTable(data, month); });
     }
 
     function renderCreativePerfCharts(data) {
@@ -2125,7 +2121,7 @@
 
     // ---------- Recently Launched Creatives (last 35 days by Asana due date) ----------
     var SELECTED_LAUNCH_ACCOUNT = null;
-    var SELECTED_LAUNCH_METRIC = 'revenue';
+    var LAUNCH_SORT = { key: 'revenue', dir: 'desc' };
     var RECENT_LAUNCH_DATA = null;
 
     function renderRecentLaunchTabs(data) {
@@ -2142,27 +2138,14 @@
         };
         container.appendChild(btn);
       });
-
-      populateMetricSelect_(document.getElementById('recentLaunchMetricSelect'), SELECTED_LAUNCH_METRIC, function (key) {
-        SELECTED_LAUNCH_METRIC = key;
-        renderRecentLaunchTable(data, SELECTED_LAUNCH_ACCOUNT);
-      });
     }
 
     function renderRecentLaunchTable(data, account) {
-      var sortCol = creativeMetricColumn_(SELECTED_LAUNCH_METRIC);
-      document.getElementById('recentLaunchMetricLabel').textContent = 'by ' + sortCol.label;
-
       var table = document.getElementById('recentLaunchTable');
-      var rows = (data.byAccount[account] || []).slice().sort(function (a, b) {
-        return b.metrics[SELECTED_LAUNCH_METRIC] - a.metrics[SELECTED_LAUNCH_METRIC];
-      }).slice(0, 25);
+      var rows = sortByMetric_(data.byAccount[account] || [], LAUNCH_SORT).slice(0, 25);
 
-      var html = '<thead><tr><th style="text-align:left;">Creative Name</th><th>Media Buyer</th>';
-      CREATIVE_METRIC_COLUMNS.forEach(function (col) {
-        html += '<th>' + col.label + '</th>';
-      });
-      html += '</tr></thead><tbody>';
+      var html = '<thead><tr><th style="text-align:left;">Creative Name</th><th>Media Buyer</th>' +
+        sortableHeaderCellsHtml_(LAUNCH_SORT) + '</tr></thead><tbody>';
 
       if (rows.length === 0) {
         html += '<tr><td colspan="' + (2 + CREATIVE_METRIC_COLUMNS.length) +
@@ -2175,13 +2158,15 @@
         html += '<tr><td style="text-align:left;">' + (b.briefName || '') +
           '</td><td><span class="buyer-dot" style="background:' + color + ';"></span>' + b.person + '</td>';
         CREATIVE_METRIC_COLUMNS.forEach(function (col) {
-          html += '<td>' + col.fmt(b.metrics[col.key]) + '</td>';
+          var isActive = col.key === LAUNCH_SORT.key;
+          html += '<td style="' + (isActive ? 'font-weight:700;' : '') + '">' + col.fmt(b.metrics[col.key]) + '</td>';
         });
         html += '</tr>';
       });
 
       html += '</tbody>';
       table.innerHTML = html;
+      bindSortableHeaders_(table, LAUNCH_SORT, function () { renderRecentLaunchTable(data, account); });
     }
 
     function renderRecentLaunches(result) {
