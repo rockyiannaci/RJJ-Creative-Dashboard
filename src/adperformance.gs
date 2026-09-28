@@ -727,6 +727,7 @@ function getRecentlyLaunchedCreatives() {
       crtvCode: code,
       creativeName: creativeName,
       briefName: b.name,
+      account: b.account,
       dueOn: b.dueOn,
       person: b.person,
       creativeType: b.creativeType,

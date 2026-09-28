@@ -685,7 +685,7 @@
           <div style="display:flex; gap:20px; flex-wrap:wrap; margin-bottom: 12px; align-items:flex-end;">
             <div>
               <div class="sub" style="margin-bottom:6px;">Account</div>
-              <div class="week-tabs" id="recentLaunchAccountTabs" style="margin-bottom:0;"></div>
+              <div class="tabs" id="recentLaunchAccountTabs" style="margin-bottom:0;"></div>
             </div>
             <div>
               <div class="sub" style="margin-bottom:6px;">Media Buyer</div>
@@ -2160,10 +2160,13 @@
     function renderRecentLaunchTabs(data) {
       var container = document.getElementById('recentLaunchAccountTabs');
       container.innerHTML = '';
-      data.accounts.forEach(function (account) {
+      ['all'].concat(data.accounts).forEach(function (account) {
         var btn = document.createElement('button');
-        btn.className = 'week-tab-btn' + (account === SELECTED_LAUNCH_ACCOUNT ? ' active' : '');
-        btn.textContent = accountLabel(data, account);
+        btn.className = 'tab-btn' + (account === SELECTED_LAUNCH_ACCOUNT ? ' active' : '');
+        btn.textContent = account === 'all' ? 'All' : accountLabel(data, account);
+        if (account === SELECTED_LAUNCH_ACCOUNT) {
+          btn.style.background = 'var(--accent)';
+        }
         btn.onclick = function () {
           SELECTED_LAUNCH_ACCOUNT = account;
           renderRecentLaunchTabs(data);
@@ -2202,24 +2205,28 @@
 
     function renderRecentLaunchTable(data, account) {
       var table = document.getElementById('recentLaunchTable');
-      var withSpend = (data.byAccount[account] || []).filter(function (b) {
+      var pool = account === 'all'
+        ? Object.keys(data.byAccount).reduce(function (acc, a) { return acc.concat(data.byAccount[a]); }, [])
+        : (data.byAccount[account] || []);
+      var withSpend = pool.filter(function (b) {
         return b.metrics.fbSpend > 0 && (SELECTED_LAUNCH_BUYER === 'all' || b.person === SELECTED_LAUNCH_BUYER);
       });
       var rows = sortByMetric_(withSpend, LAUNCH_SORT).slice(0, 25);
 
-      var html = '<thead><tr><th style="text-align:left;">Creative Name</th><th style="text-align:left;">Media Buyer</th>' +
+      var html = '<thead><tr><th style="text-align:left;">Creative Name</th><th style="text-align:left;">Media Buyer</th><th>Account</th>' +
         sortableHeaderCellsHtml_(LAUNCH_SORT) + '</tr></thead><tbody>';
 
       if (rows.length === 0) {
-        html += '<tr><td class="creative-name-cell" colspan="' + (2 + CREATIVE_METRIC_COLUMNS.length) +
+        html += '<tr><td class="creative-name-cell" colspan="' + (3 + CREATIVE_METRIC_COLUMNS.length) +
           '" style="color:var(--muted); text-align:center;">No briefs with spend due in the last ' +
-          data.windowDays + ' days for ' + accountLabel(data, account) + '</td></tr>';
+          data.windowDays + ' days for ' + (account === 'all' ? 'any account' : accountLabel(data, account)) + '</td></tr>';
       }
 
       rows.forEach(function (b) {
         var color = colorFor(b.person, data.people);
         html += '<tr><td class="creative-name-cell" style="text-align:left;">' + (b.creativeName || '—') +
-          '</td><td style="white-space:nowrap; text-align:left;"><span class="buyer-dot" style="background:' + color + ';"></span>' + b.person + '</td>';
+          '</td><td style="white-space:nowrap; text-align:left;"><span class="buyer-dot" style="background:' + color + ';"></span>' + b.person +
+          '</td><td>' + accountLabel(data, b.account) + '</td>';
         CREATIVE_METRIC_COLUMNS.forEach(function (col) {
           var isActive = col.key === LAUNCH_SORT.key;
           var isKey = CREATIVE_TOP_KEY_METRICS.indexOf(col.key) !== -1;
@@ -2241,8 +2248,9 @@
         return;
       }
       RECENT_LAUNCH_DATA = result;
-      if (!SELECTED_LAUNCH_ACCOUNT || result.accounts.indexOf(SELECTED_LAUNCH_ACCOUNT) === -1) {
-        SELECTED_LAUNCH_ACCOUNT = result.accounts[0];
+      if (!SELECTED_LAUNCH_ACCOUNT ||
+        (SELECTED_LAUNCH_ACCOUNT !== 'all' && result.accounts.indexOf(SELECTED_LAUNCH_ACCOUNT) === -1)) {
+        SELECTED_LAUNCH_ACCOUNT = 'all';
       }
       renderRecentLaunchTabs(result);
       renderRecentLaunchTable(result, SELECTED_LAUNCH_ACCOUNT);
