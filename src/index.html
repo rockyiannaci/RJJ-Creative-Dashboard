@@ -684,7 +684,17 @@
           <div class="section-title" style="margin-top: 20px;">
             Top 25 Revenue Creatives (<span id="creativePerfTopMonthLabel"></span>)
           </div>
-          <div class="card">
+          <div style="display:flex; gap:20px; flex-wrap:wrap; margin-bottom: 12px;">
+            <div>
+              <div class="sub" style="margin-bottom:6px;">Media Buyer</div>
+              <div class="tabs" id="creativePerfTopBuyerFilter" style="margin-bottom:0;"></div>
+            </div>
+            <div>
+              <div class="sub" style="margin-bottom:6px;">Account</div>
+              <div class="tabs" id="creativePerfTopAccountFilter" style="margin-bottom:0;"></div>
+            </div>
+          </div>
+          <div class="card" style="overflow-x:auto;">
             <table class="matrix-table" id="creativePerfTopTable"></table>
           </div>
         </div>
@@ -1847,36 +1857,81 @@
       });
 
       var html = '<div class="section-title" style="margin-bottom:10px;">' +
-        person + '’s Creatives (' + creativeMonthLabel_(month) + ')</div>' +
-        '<table class="matrix-table"><thead><tr><th>Creative Name</th><th>Account</th><th>Brief</th>';
+        person + '’s Top Creatives by Revenue (' + creativeMonthLabel_(month) + ')</div>' +
+        '<div style="overflow-x:auto;"><table class="matrix-table"><thead><tr>' +
+        '<th style="text-align:left;">Creative Name</th><th>Account</th>';
       CREATIVE_METRIC_COLUMNS.forEach(function (col) {
         html += '<th>' + col.label + '</th>';
       });
       html += '</tr></thead><tbody>';
 
       if (rows.length === 0) {
-        html += '<tr><td colspan="' + (3 + CREATIVE_METRIC_COLUMNS.length) +
+        html += '<tr><td colspan="' + (2 + CREATIVE_METRIC_COLUMNS.length) +
           '" style="color:var(--muted); text-align:center;">No matched creatives for this period</td></tr>';
       }
 
       rows.forEach(function (c) {
-        html += '<tr><td>' + (c.creativeName || '—') + '</td><td>' + accountLabel(data, c.account) + '</td><td>' +
-          (c.briefName || '') + '</td>';
+        html += '<tr><td style="text-align:left;">' + (c.creativeName || '—') + '</td><td>' +
+          accountLabel(data, c.account) + '</td>';
         CREATIVE_METRIC_COLUMNS.forEach(function (col) {
           html += '<td>' + col.fmt(c.metrics[col.key]) + '</td>';
         });
         html += '</tr>';
       });
 
-      html += '</tbody></table>';
+      html += '</tbody></table></div>';
       container.innerHTML = html;
+    }
+
+    var SELECTED_TOP_BUYER = 'all';
+    var SELECTED_TOP_ACCOUNT = 'all';
+
+    function renderCreativePerfTopFilters(data) {
+      var buyerContainer = document.getElementById('creativePerfTopBuyerFilter');
+      buyerContainer.innerHTML = '';
+      ['all'].concat(data.people).forEach(function (person) {
+        var btn = document.createElement('button');
+        btn.className = 'tab-btn' + (person === SELECTED_TOP_BUYER ? ' active' : '');
+        btn.textContent = person === 'all' ? 'All' : person;
+        if (person === SELECTED_TOP_BUYER) {
+          btn.style.background = person === 'all' ? 'var(--accent)' : colorFor(person, data.people);
+        }
+        btn.onclick = function () {
+          SELECTED_TOP_BUYER = person;
+          renderCreativePerfTopFilters(data);
+          renderCreativePerfTopTable(data, SELECTED_CREATIVE_MONTH);
+        };
+        buyerContainer.appendChild(btn);
+      });
+
+      var accountContainer = document.getElementById('creativePerfTopAccountFilter');
+      accountContainer.innerHTML = '';
+      var accounts = Object.keys(
+        data.creatives.reduce(function (acc, c) { acc[c.account] = true; return acc; }, {})
+      );
+      ['all'].concat(accounts).forEach(function (account) {
+        var btn = document.createElement('button');
+        btn.className = 'tab-btn' + (account === SELECTED_TOP_ACCOUNT ? ' active' : '');
+        btn.textContent = account === 'all' ? 'All' : accountLabel(data, account);
+        if (account === SELECTED_TOP_ACCOUNT) {
+          btn.style.background = 'var(--accent)';
+        }
+        btn.onclick = function () {
+          SELECTED_TOP_ACCOUNT = account;
+          renderCreativePerfTopFilters(data);
+          renderCreativePerfTopTable(data, SELECTED_CREATIVE_MONTH);
+        };
+        accountContainer.appendChild(btn);
+      });
     }
 
     function renderCreativePerfTopTable(data, month) {
       document.getElementById('creativePerfTopMonthLabel').textContent = creativeMonthLabel_(month);
       var table = document.getElementById('creativePerfTopTable');
       var rows = data.creatives.filter(function (c) {
-        return month === 'all' || c.month === month;
+        return (month === 'all' || c.month === month) &&
+          (SELECTED_TOP_BUYER === 'all' || c.person === SELECTED_TOP_BUYER) &&
+          (SELECTED_TOP_ACCOUNT === 'all' || c.account === SELECTED_TOP_ACCOUNT);
       }).sort(function (a, b) {
         return b.metrics.revenue - a.metrics.revenue;
       }).slice(0, 25);
@@ -1987,6 +2042,7 @@
       }
       renderCreativePerfTabs(result);
       renderCreativePerfTable(result, SELECTED_CREATIVE_MONTH);
+      renderCreativePerfTopFilters(result);
       renderCreativePerfTopTable(result, SELECTED_CREATIVE_MONTH);
       renderCreativePerfCharts(result);
     }
