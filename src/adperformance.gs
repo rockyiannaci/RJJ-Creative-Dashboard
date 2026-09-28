@@ -463,40 +463,78 @@ function buildReverseClientNameMap_(podConfig) {
 }
 
 /**
- * Static creatives (no CRTV code) are Rocky's per pod convention — they're
- * raw images that never go through an Asana brief, so there's no code to
- * join on. Everything else must resolve to a real brief by a pod member,
- * or it's excluded rather than guessed at.
+ * Static creatives (no CRTV code) never go through an Asana brief, so
+ * there's no code to join on — attribution here is a fixed convention per
+ * account/name, agreed with the pod directly rather than inferred:
+ *   - "Collage ..." -> Rocky, on every account
+ *   - RBA-ENY / RBA-QC, no CRTV code, not a Collage -> Julian
+ *   - Leaf Home / Bath Planet, no CRTV code, not a Collage -> "Other"
+ *   - Refloor / RBA-GW, no CRTV code, not a Collage -> Rocky (default)
+ * "Other" is intentionally not one of podConfig.people: it's excluded from
+ * the media-buyer totals table by construction (nothing in that table
+ * loops over a person outside podConfig.people), but still shows up in the
+ * Top 25 / creative-level views so its revenue isn't silently dropped.
  */
-var STATIC_CREATIVE_PERSON = 'Rocky Iannaci';
+function attributeStaticCreativeRow_(c, account) {
+  var isCollage = /collage/i.test(c.adName || '');
+  var person;
+  if (isCollage) {
+    person = 'Rocky Iannaci';
+  } else if (account === 'Renewal By Andersen - ENY' || account === 'Renewal By Andersen - QC') {
+    person = 'Julian DiVito';
+  } else if (account === 'Leaf Home Enhancements' || account === 'Bath Planet') {
+    person = 'Other';
+  } else {
+    person = 'Rocky Iannaci';
+  }
+  return {
+    person: person,
+    account: account,
+    briefName: c.adName || '(static image)',
+    creativeType: 'Static/Raw Asset'
+  };
+}
 
 function attributeCreativeRow_(c, briefByCode, reverseClientNameMap, podConfig) {
+  var account = reverseClientNameMap[c.clientName] || c.clientName;
+
   if (!c.crtvCode) {
-    if (podConfig.people.indexOf(STATIC_CREATIVE_PERSON) === -1) return null;
-    return {
-      person: STATIC_CREATIVE_PERSON,
-      account: reverseClientNameMap[c.clientName] || c.clientName,
-      briefName: c.adName || '(static image)',
-      creativeType: 'Static/Raw Asset'
-    };
+    return attributeStaticCreativeRow_(c, account);
   }
+
   var brief = briefByCode[c.crtvCode];
-  if (!brief || podConfig.people.indexOf(brief.person) === -1) return null;
   // A CRTV code is only unique within one account's Asana project, not
   // globally in BigQuery — another account entirely could reuse the same
   // code (or an ad naming coincidence) on an ad tagged with a different
   // client_name. Only trust the match when BigQuery's client_name for this
   // row actually resolves back to the SAME account the brief was written
-  // for; otherwise this isn't really the brief's ad, so exclude it rather
-  // than risk crediting one account's revenue to another's media buyer.
-  var expectedClientName = podConfig.adPerformanceClientNameMap[brief.account];
-  if (c.clientName !== expectedClientName) return null;
-  return {
-    person: brief.person,
-    account: brief.account,
-    briefName: brief.name,
-    creativeType: brief.creativeType
-  };
+  // for.
+  var expectedClientName = brief ? podConfig.adPerformanceClientNameMap[brief.account] : null;
+  var resolved = brief && podConfig.people.indexOf(brief.person) !== -1 && c.clientName === expectedClientName;
+
+  if (resolved) {
+    return {
+      person: brief.person,
+      account: brief.account,
+      briefName: brief.name,
+      creativeType: brief.creativeType
+    };
+  }
+
+  // Refloor's CRTV-coded ads that don't resolve to a known brief/media
+  // buyer still show up (as "Other") in the Top 25 rather than being
+  // dropped, since Refloor's spend is too large to silently exclude.
+  // Every other account keeps the old behavior: exclude rather than guess.
+  if (account === 'Refloor') {
+    return {
+      person: 'Other',
+      account: 'Refloor',
+      briefName: c.adName || c.crtvCode,
+      creativeType: 'Unmatched'
+    };
+  }
+
+  return null;
 }
 
 function sumCreativeTotals_(rows) {

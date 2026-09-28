@@ -723,6 +723,7 @@
 
     function colorFor(person, people) {
       var idx = people.indexOf(person);
+      if (idx === -1) return TYPE_FALLBACK_COLOR;
       return PALETTE[idx % PALETTE.length];
     }
 
@@ -1948,7 +1949,16 @@
     function renderCreativePerfTopFilters(data) {
       var buyerContainer = document.getElementById('creativePerfTopBuyerFilter');
       buyerContainer.innerHTML = '';
-      ['all'].concat(data.people).forEach(function (person) {
+      // Include any person actually appearing on a creative row here (e.g.
+      // "Other", for a creative whose media buyer isn't one of the pod's
+      // three) even though it's deliberately left out of data.people so it
+      // never shows up in the totals table above.
+      var buyers = data.people.concat(
+        Object.keys(
+          data.creatives.reduce(function (acc, c) { acc[c.person] = true; return acc; }, {})
+        ).filter(function (p) { return data.people.indexOf(p) === -1; })
+      );
+      ['all'].concat(buyers).forEach(function (person) {
         var btn = document.createElement('button');
         btn.className = 'tab-btn' + (person === SELECTED_TOP_BUYER ? ' active' : '');
         btn.textContent = person === 'all' ? 'All' : person;
