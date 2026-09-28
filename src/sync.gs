@@ -91,6 +91,7 @@ function filterAndAggregate_(tasks, podConfig) {
 
     var account = getCustomFieldValue_(task, podConfig.clientNameFieldName);
     var creativeType = getCustomFieldValue_(task, podConfig.creativeTypeFieldName);
+    var crtvCode = getCustomFieldValue_(task, podConfig.crtvFieldName);
     var person = task.created_by && task.created_by.name ? task.created_by.name : '';
 
     seenAccountValues[account] = (seenAccountValues[account] || 0) + 1;
@@ -111,7 +112,8 @@ function filterAndAggregate_(tasks, podConfig) {
         person,
         account,
         creativeType,
-        task.completed
+        task.completed,
+        crtvCode
       ]);
     } else if (!accountMatches && !personMatches) {
       excludedByBoth++;
@@ -143,7 +145,8 @@ function writeDataSheet_(ss, rows) {
     'person',
     'account',
     'creative_type',
-    'completed'
+    'completed',
+    'crtv_code'
   ]);
 
   // Clear everything below the header, then rewrite from scratch. The sheet

@@ -624,6 +624,34 @@
           </div>
         </div>
       </div>
+
+      <div class="page-section" id="page-creativeperf">
+        <div id="creativePerfNotConfigured" style="display:none;">
+          <div class="card">
+            <h2>Creative Performance</h2>
+            <p class="sub" style="margin: 0;">
+              Not synced yet. Run <code>syncCreativePerformanceData</code> once from the
+              Apps Script editor (needs the same BigQuery access as Ad Performance).
+              This joins each brief's CRTV code to its ad's performance in BigQuery, so
+              it shows how each media buyer's own briefed creatives actually performed —
+              distinct from the "By Media Buyer" table on the Ad Performance tab, which
+              only reflects who operates the ad account.
+            </p>
+          </div>
+        </div>
+
+        <div id="creativePerfConnected" style="display:none;">
+          <header style="margin-bottom: 20px;">
+            <div class="sub" id="creativePerfSyncLabel"></div>
+          </header>
+
+          <div class="tabs" id="creativePerfTabs"></div>
+
+          <div class="card">
+            <table class="matrix-table" id="creativePerfTable"></table>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -682,7 +710,8 @@
       { id: 'clientdetail', label: 'Client Detail' },
       { id: 'matrix', label: 'Weekly & Monthly Matrix' },
       { id: 'comparison', label: 'Performance Comparison' },
-      { id: 'adperf', label: 'Ad Performance' }
+      { id: 'adperf', label: 'Ad Performance' },
+      { id: 'creativeperf', label: 'Creative Performance' }
     ];
     var ACTIVE_SECTION = 'overview';
 
@@ -1669,6 +1698,109 @@
         .getAdPerformanceData();
     }
 
+    // ---------- Creative Performance (CRTV-code-matched brief results) ----------
+    var CREATIVE_PERF_DATA = null;
+    var SELECTED_CREATIVE_PERSON = null;
+
+    var CREATIVE_METRIC_COLUMNS = [
+      { key: 'lead', label: 'Lead', fmt: function (v) { return Math.round(v).toLocaleString(); } },
+      { key: 'set', label: 'Set', fmt: function (v) { return Math.round(v).toLocaleString(); } },
+      { key: 'demo', label: 'Demo', fmt: function (v) { return Math.round(v).toLocaleString(); } },
+      { key: 'sold', label: 'Sold', fmt: function (v) { return Math.round(v).toLocaleString(); } },
+      { key: 'setRate', label: 'Set Rate', fmt: fmtPct_ },
+      { key: 'cpl', label: 'CPL', fmt: fmtMoney_ },
+      { key: 'cpSet', label: 'CPSet', fmt: fmtMoney_ },
+      { key: 'cpd', label: 'CPD', fmt: fmtMoney_ },
+      { key: 'closeRate', label: 'Close Rate', fmt: fmtPct_ },
+      { key: 'fbSpend', label: 'FB Spend', fmt: fmtMoney_ },
+      { key: 'revenue', label: 'Revenue', fmt: fmtMoney_ },
+      { key: 'avgTicket', label: 'AVG Ticket', fmt: fmtMoney_ },
+      { key: 'com', label: 'COM', fmt: fmtPct_ }
+    ];
+
+    function renderCreativePerfTabs(data) {
+      var container = document.getElementById('creativePerfTabs');
+      container.innerHTML = '';
+      data.people.forEach(function (person) {
+        var btn = document.createElement('button');
+        btn.className = 'tab-btn' + (person === SELECTED_CREATIVE_PERSON ? ' active' : '');
+        btn.textContent = person;
+        if (person === SELECTED_CREATIVE_PERSON) {
+          btn.style.background = colorFor(person, data.people);
+        }
+        btn.onclick = function () {
+          SELECTED_CREATIVE_PERSON = person;
+          renderCreativePerfTabs(data);
+          renderCreativePerfTable(data, person);
+        };
+        container.appendChild(btn);
+      });
+    }
+
+    function renderCreativePerfTable(data, person) {
+      var table = document.getElementById('creativePerfTable');
+      var creatives = data.byPerson[person] || [];
+
+      var html = '<thead><tr><th>CRTV Code</th><th>Account</th><th>Brief</th>';
+      CREATIVE_METRIC_COLUMNS.forEach(function (col) {
+        html += '<th>' + col.label + '</th>';
+      });
+      html += '</tr></thead><tbody>';
+
+      if (creatives.length === 0) {
+        html += '<tr><td colspan="' + (3 + CREATIVE_METRIC_COLUMNS.length) +
+          '" style="color:var(--muted); text-align:center;">No matched creatives yet for ' + person + '</td></tr>';
+      }
+
+      creatives.forEach(function (c) {
+        html += '<tr><td>' + c.crtvCode + '</td><td>' + accountLabel(data, c.account) + '</td><td>' +
+          (c.briefName || '') + '</td>';
+        CREATIVE_METRIC_COLUMNS.forEach(function (col) {
+          html += '<td>' + col.fmt(c.metrics[col.key]) + '</td>';
+        });
+        html += '</tr>';
+      });
+
+      html += '</tbody><tfoot><tr><td colspan="3">Total</td>';
+      var totals = data.totalsByPerson[person] || {};
+      CREATIVE_METRIC_COLUMNS.forEach(function (col) {
+        html += '<td>' + col.fmt(totals[col.key] || 0) + '</td>';
+      });
+      html += '</tr></tfoot>';
+
+      table.innerHTML = html;
+    }
+
+    function renderCreativePerformance(result) {
+      if (!result || !result.configured) {
+        document.getElementById('creativePerfNotConfigured').style.display = 'block';
+        document.getElementById('creativePerfConnected').style.display = 'none';
+        return;
+      }
+      document.getElementById('creativePerfNotConfigured').style.display = 'none';
+      document.getElementById('creativePerfConnected').style.display = 'block';
+
+      document.getElementById('creativePerfSyncLabel').textContent = result.lastCreativeSyncAt
+        ? 'Last synced: ' + new Date(result.lastCreativeSyncAt).toLocaleString()
+        : 'Not synced yet';
+
+      CREATIVE_PERF_DATA = result;
+      if (!SELECTED_CREATIVE_PERSON || result.people.indexOf(SELECTED_CREATIVE_PERSON) === -1) {
+        SELECTED_CREATIVE_PERSON = result.people[0];
+      }
+      renderCreativePerfTabs(result);
+      renderCreativePerfTable(result, SELECTED_CREATIVE_PERSON);
+    }
+
+    function loadCreativePerformance() {
+      google.script.run
+        .withSuccessHandler(renderCreativePerformance)
+        .withFailureHandler(function () {
+          renderCreativePerformance({ configured: false });
+        })
+        .getCreativePerformanceData();
+    }
+
     function showError(err) {
       document.getElementById('loading').style.display = 'none';
       var el = document.getElementById('error');
@@ -1696,6 +1828,7 @@
 
     loadDashboard();
     loadAdPerformance();
+    loadCreativePerformance();
   </script>
 </body>
 </html>

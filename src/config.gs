@@ -40,6 +40,10 @@ var POD_CONFIGS = {
     // Custom field names on the Asana task, as they appear in Asana.
     clientNameFieldName: 'Client Name',
     creativeTypeFieldName: 'Creative Request Type',
+    // The custom field holding the creative asset code (e.g. "CRTV-22716"),
+    // used to join a brief back to its ad's performance in BigQuery via
+    // the matching code embedded in the ad's name there.
+    crtvFieldName: 'CRTV',
     // Fixed display order + colors for the known creative types, matching
     // their Asana tag colors. Any value not listed here (a new type added
     // later, or a blank field) still renders, just in a fallback color at

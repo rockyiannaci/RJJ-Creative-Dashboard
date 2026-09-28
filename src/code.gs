@@ -34,7 +34,7 @@ function readDataRows_() {
   }
 
   var values = sheet
-    .getRange(2, 1, sheet.getLastRow() - 1, 8)
+    .getRange(2, 1, sheet.getLastRow() - 1, 9)
     .getValues();
 
   return values.map(function (r) {
@@ -48,7 +48,8 @@ function readDataRows_() {
       person: r[4],
       account: r[5],
       creativeType: r[6],
-      completed: r[7]
+      completed: r[7],
+      crtvCode: r[8]
     };
   });
 }
