@@ -675,6 +675,10 @@
               <div class="section-title">CPL by Month</div>
               <canvas id="creativePerfCplChart"></canvas>
             </div>
+            <div class="card">
+              <div class="section-title">CPS (Cost Per Sale) by Month</div>
+              <canvas id="creativePerfCpsChart"></canvas>
+            </div>
           </div>
 
           <div class="section-title" style="margin-top: 20px;">
@@ -1856,7 +1860,7 @@
       }
 
       rows.forEach(function (c) {
-        html += '<tr><td>' + c.crtvCode + '</td><td>' + accountLabel(data, c.account) + '</td><td>' +
+        html += '<tr><td>' + (c.crtvCode || '—') + '</td><td>' + accountLabel(data, c.account) + '</td><td>' +
           (c.briefName || '') + '</td>';
         CREATIVE_METRIC_COLUMNS.forEach(function (col) {
           html += '<td>' + col.fmt(c.metrics[col.key]) + '</td>';
@@ -1877,18 +1881,18 @@
         return b.metrics.revenue - a.metrics.revenue;
       }).slice(0, 25);
 
-      var html = '<thead><tr><th>#</th><th>CRTV Code</th><th>Media Buyer</th><th>Account</th><th>Brief</th>' +
+      var html = '<thead><tr><th>#</th><th>CRTV Code</th><th>Media Buyer</th><th>Account</th>' +
         '<th>Revenue</th><th>FB Spend</th><th>COM</th></tr></thead><tbody>';
 
       if (rows.length === 0) {
-        html += '<tr><td colspan="8" style="color:var(--muted); text-align:center;">No matched creatives for this period</td></tr>';
+        html += '<tr><td colspan="7" style="color:var(--muted); text-align:center;">No matched creatives for this period</td></tr>';
       }
 
       rows.forEach(function (c, i) {
         var color = colorFor(c.person, data.people);
-        html += '<tr><td>' + (i + 1) + '</td><td>' + c.crtvCode + '</td><td>' +
+        html += '<tr><td>' + (i + 1) + '</td><td>' + (c.crtvCode || '—') + '</td><td>' +
           '<span class="buyer-dot" style="background:' + color + ';"></span>' + c.person + '</td><td>' +
-          accountLabel(data, c.account) + '</td><td>' + (c.briefName || '') + '</td><td>' +
+          accountLabel(data, c.account) + '</td><td>' +
           fmtMoney_(c.metrics.revenue) + '</td><td>' + fmtMoney_(c.metrics.fbSpend) + '</td><td>' +
           fmtPct_(c.metrics.com) + '</td></tr>';
       });
@@ -1919,6 +1923,16 @@
           tension: 0.2
         };
       });
+      var cpsDatasets = data.people.map(function (person) {
+        return {
+          label: person,
+          data: months.map(function (m) { return (data.totalsByMonth[m][person] || {}).cpSale || 0; }),
+          borderColor: colorFor(person, data.people),
+          backgroundColor: colorFor(person, data.people),
+          fill: false,
+          tension: 0.2
+        };
+      });
 
       destroyChart('creativePerfRevenue');
       charts.creativePerfRevenue = new Chart(document.getElementById('creativePerfRevenueChart'), {
@@ -1935,6 +1949,17 @@
       charts.creativePerfCpl = new Chart(document.getElementById('creativePerfCplChart'), {
         type: 'line',
         data: { labels: months.map(creativeMonthLabel_), datasets: cplDatasets },
+        options: {
+          responsive: true,
+          plugins: { legend: { position: 'bottom' } },
+          scales: { y: { beginAtZero: true, grace: '12%' } }
+        }
+      });
+
+      destroyChart('creativePerfCps');
+      charts.creativePerfCps = new Chart(document.getElementById('creativePerfCpsChart'), {
+        type: 'line',
+        data: { labels: months.map(creativeMonthLabel_), datasets: cpsDatasets },
         options: {
           responsive: true,
           plugins: { legend: { position: 'bottom' } },

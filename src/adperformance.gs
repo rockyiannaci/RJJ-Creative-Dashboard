@@ -278,6 +278,10 @@ function getAdPerformanceData() {
 
 var CREATIVE_SHEET_NAME = 'CreativePerformance';
 var CRTV_REGEX = '(?i)(CRTV-[0-9]+)';
+// Fixed start date (not a rolling lookback) so every month tab from January
+// onward always has a complete month's worth of data, rather than the
+// oldest visible month being partial depending on when the sync last ran.
+var CREATIVE_SYNC_START_DATE = '2026-01-01';
 
 function buildCreativePerformanceQuery_(podConfig) {
   var cfg = AD_PERFORMANCE_CONFIG;
@@ -285,15 +289,10 @@ function buildCreativePerformanceQuery_(podConfig) {
     return bqStringLiteral_(podConfig.adPerformanceClientNameMap[key]);
   });
 
-  var sinceDate = Utilities.formatDate(
-    new Date(Date.now() - AD_SYNC_LOOKBACK_DAYS * 86400000),
-    Session.getScriptTimeZone(),
-    'yyyy-MM-dd'
-  );
-
   return [
     'SELECT',
     "  REGEXP_EXTRACT(ad_name, '" + CRTV_REGEX + "') AS crtv_code,",
+    '  ad_name,',
     '  ' + cfg.clientNameColumn + ' AS client_name,',
     "  FORMAT_DATE('%Y-%m', " + cfg.dateColumn + ') AS month,',
     '  SUM(total_spend) AS total_spend,',
@@ -303,16 +302,18 @@ function buildCreativePerformanceQuery_(podConfig) {
     '  SUM(count_sold) AS count_sold,',
     '  SUM(sum_revenue) AS sum_revenue',
     'FROM `' + cfg.projectId + '.' + cfg.dataset + '.' + cfg.table + '`',
-    'WHERE ' + cfg.dateColumn + ' >= ' + bqStringLiteral_(sinceDate),
+    'WHERE ' + cfg.dateColumn + ' >= ' + bqStringLiteral_(CREATIVE_SYNC_START_DATE),
     '  AND ' + cfg.clientNameColumn + ' IN (' + clientNames.join(', ') + ')',
-    "  AND REGEXP_CONTAINS(ad_name, '" + CRTV_REGEX + "')",
-    'GROUP BY crtv_code, client_name, month'
+    // No CRTV code (a static image, per the pod's convention) still counts —
+    // getCreativePerformanceData() attributes those to Rocky directly.
+    'GROUP BY crtv_code, ad_name, client_name, month'
   ].join('\n');
 }
 
 function writeCreativeDataSheet_(ss, rows) {
   var sheet = getOrCreateSheetTab_(ss, CREATIVE_SHEET_NAME, [
     'crtv_code',
+    'ad_name',
     'client_name',
     'month',
     'total_spend',
@@ -327,10 +328,10 @@ function writeCreativeDataSheet_(ss, rows) {
     sheet.getRange(2, 1, sheet.getMaxRows() - 1, sheet.getMaxColumns()).clearContent();
   }
   if (rows.length > 0) {
-    // Force the month column (C, "yyyy-MM") to plain text so Sheets doesn't
+    // Force the month column (D, "yyyy-MM") to plain text so Sheets doesn't
     // auto-convert it into a Date cell, which would break the dashboard's
     // string-based month tabs.
-    sheet.getRange(2, 3, rows.length, 1).setNumberFormat('@');
+    sheet.getRange(2, 4, rows.length, 1).setNumberFormat('@');
     sheet.getRange(2, 1, rows.length, rows[0].length).setValues(rows);
   }
 }
@@ -358,23 +359,20 @@ function syncCreativePerformanceData() {
   var sql = buildCreativePerformanceQuery_(podConfig);
   var rawRows = runBigQueryQuery_(AD_PERFORMANCE_CONFIG.projectId, sql);
 
-  var rows = rawRows
-    .filter(function (r) {
-      return r.crtv_code;
-    })
-    .map(function (r) {
-      return [
-        r.crtv_code,
-        r.client_name,
-        r.month,
-        Number(r.total_spend || 0),
-        Number(r.count_leads || 0),
-        Number(r.count_set || 0),
-        Number(r.count_demo || 0),
-        Number(r.count_sold || 0),
-        Number(r.sum_revenue || 0)
-      ];
-    });
+  var rows = rawRows.map(function (r) {
+    return [
+      r.crtv_code || '',
+      r.ad_name || '',
+      r.client_name,
+      r.month,
+      Number(r.total_spend || 0),
+      Number(r.count_leads || 0),
+      Number(r.count_set || 0),
+      Number(r.count_demo || 0),
+      Number(r.count_sold || 0),
+      Number(r.sum_revenue || 0)
+    ];
+  });
 
   var ss = getOrCreateSpreadsheet_();
   writeCreativeDataSheet_(ss, rows);
@@ -401,18 +399,19 @@ function readCreativePerformanceRows_() {
   var sheet = SpreadsheetApp.openById(sheetId).getSheetByName(CREATIVE_SHEET_NAME);
   if (!sheet || sheet.getLastRow() < 2) return [];
 
-  var values = sheet.getRange(2, 1, sheet.getLastRow() - 1, 9).getValues();
+  var values = sheet.getRange(2, 1, sheet.getLastRow() - 1, 10).getValues();
   return values.map(function (r) {
     return {
       crtvCode: String(r[0] || '').trim().toUpperCase(),
-      clientName: r[1],
-      month: normalizeMonthCell_(r[2]),
-      spend: r[3],
-      leads: r[4],
-      sets: r[5],
-      demos: r[6],
-      sold: r[7],
-      revenue: r[8]
+      adName: r[1],
+      clientName: r[2],
+      month: normalizeMonthCell_(r[3]),
+      spend: r[4],
+      leads: r[5],
+      sets: r[6],
+      demos: r[7],
+      sold: r[8],
+      revenue: r[9]
     };
   });
 }
@@ -431,11 +430,53 @@ function computeCreativeMetrics_(t) {
     cpl: t.leads ? t.spend / t.leads : 0,
     cpSet: t.sets ? t.spend / t.sets : 0,
     cpd: t.demos ? t.spend / t.demos : 0,
+    cpSale: t.sold ? t.spend / t.sold : 0,
     closeRate: t.demos ? t.sold / t.demos : 0,
     fbSpend: t.spend,
     revenue: t.revenue,
     avgTicket: t.sold ? t.revenue / t.sold : 0,
     com: t.revenue ? t.spend / t.revenue : 0
+  };
+}
+
+/**
+ * BigQuery client_name -> this pod's account key, the reverse of
+ * adPerformanceClientNameMap. Used to attribute a static (no-CRTV) ad back
+ * to an account without going through the Asana brief join.
+ */
+function buildReverseClientNameMap_(podConfig) {
+  var reverse = {};
+  Object.keys(podConfig.adPerformanceClientNameMap).forEach(function (account) {
+    reverse[podConfig.adPerformanceClientNameMap[account]] = account;
+  });
+  return reverse;
+}
+
+/**
+ * Static creatives (no CRTV code) are Rocky's per pod convention — they're
+ * raw images that never go through an Asana brief, so there's no code to
+ * join on. Everything else must resolve to a real brief by a pod member,
+ * or it's excluded rather than guessed at.
+ */
+var STATIC_CREATIVE_PERSON = 'Rocky Iannaci';
+
+function attributeCreativeRow_(c, briefByCode, reverseClientNameMap, podConfig) {
+  if (!c.crtvCode) {
+    if (podConfig.people.indexOf(STATIC_CREATIVE_PERSON) === -1) return null;
+    return {
+      person: STATIC_CREATIVE_PERSON,
+      account: reverseClientNameMap[c.clientName] || c.clientName,
+      briefName: c.adName || '(static image)',
+      creativeType: 'Static/Raw Asset'
+    };
+  }
+  var brief = briefByCode[c.crtvCode];
+  if (!brief || podConfig.people.indexOf(brief.person) === -1) return null;
+  return {
+    person: brief.person,
+    account: brief.account,
+    briefName: brief.name,
+    creativeType: brief.creativeType
   };
 }
 
@@ -466,6 +507,7 @@ function getCreativePerformanceData() {
   var podConfig = getActivePodConfig();
   var creativeRows = readCreativePerformanceRows_();
   var briefRows = readDataRows_();
+  var reverseClientNameMap = buildReverseClientNameMap_(podConfig);
 
   // First brief wins if a CRTV code somehow appears on more than one task.
   var briefByCode = {};
@@ -476,11 +518,16 @@ function getCreativePerformanceData() {
     }
   });
 
-  // Only creatives with a matching brief by a person in this pod count
-  // toward any month's totals.
-  var matchedRows = creativeRows.filter(function (c) {
-    var brief = briefByCode[c.crtvCode];
-    return brief && podConfig.people.indexOf(brief.person) !== -1;
+  // Every row that resolves to a person in this pod — either via its
+  // brief's CRTV code, or (for a static, no-CRTV ad) the fixed
+  // STATIC_CREATIVE_PERSON convention — counts toward that person's totals.
+  var matchedRows = [];
+  var attribution = {}; // keyed by array index in matchedRows
+  creativeRows.forEach(function (c) {
+    var attr = attributeCreativeRow_(c, briefByCode, reverseClientNameMap, podConfig);
+    if (!attr) return;
+    attribution[matchedRows.length] = attr;
+    matchedRows.push(c);
   });
 
   var months = Object.keys(
@@ -490,12 +537,12 @@ function getCreativePerformanceData() {
     }, {})
   ).sort();
 
-  function totalsForRows(rows) {
+  function totalsForRows(rows, attrs) {
     var totals = {};
     podConfig.people.forEach(function (person) {
       var rawTotals = sumCreativeTotals_(
-        rows.filter(function (c) {
-          return briefByCode[c.crtvCode].person === person;
+        rows.filter(function (c, i) {
+          return attrs[i].person === person;
         })
       );
       totals[person] = computeCreativeMetrics_(rawTotals);
@@ -503,26 +550,31 @@ function getCreativePerformanceData() {
     return totals;
   }
 
-  var totalsByMonth = { all: totalsForRows(matchedRows) };
+  var allAttrs = matchedRows.map(function (c, i) { return attribution[i]; });
+  var totalsByMonth = { all: totalsForRows(matchedRows, allAttrs) };
   months.forEach(function (month) {
-    totalsByMonth[month] = totalsForRows(
-      matchedRows.filter(function (c) {
-        return c.month === month;
-      })
-    );
+    var rowsForMonth = [];
+    var attrsForMonth = [];
+    matchedRows.forEach(function (c, i) {
+      if (c.month === month) {
+        rowsForMonth.push(c);
+        attrsForMonth.push(allAttrs[i]);
+      }
+    });
+    totalsByMonth[month] = totalsForRows(rowsForMonth, attrsForMonth);
   });
 
   // Brief-level rows for the "top revenue creatives" breakdown and each
   // media buyer's expandable detail table. Filtering/sorting/ranking by
   // month happens client-side against this flat list.
-  var creatives = matchedRows.map(function (c) {
-    var brief = briefByCode[c.crtvCode];
+  var creatives = matchedRows.map(function (c, i) {
+    var attr = allAttrs[i];
     return {
-      crtvCode: c.crtvCode,
-      account: brief.account,
-      briefName: brief.name,
-      creativeType: brief.creativeType,
-      person: brief.person,
+      crtvCode: c.crtvCode || null,
+      account: attr.account,
+      briefName: attr.briefName,
+      creativeType: attr.creativeType,
+      person: attr.person,
       month: c.month,
       metrics: computeCreativeMetrics_({
         spend: c.spend,
