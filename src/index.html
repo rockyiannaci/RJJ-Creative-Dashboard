@@ -1848,7 +1848,7 @@
 
       var html = '<div class="section-title" style="margin-bottom:10px;">' +
         person + '’s Creatives (' + creativeMonthLabel_(month) + ')</div>' +
-        '<table class="matrix-table"><thead><tr><th>CRTV Code</th><th>Account</th><th>Brief</th>';
+        '<table class="matrix-table"><thead><tr><th>Creative Name</th><th>Account</th><th>Brief</th>';
       CREATIVE_METRIC_COLUMNS.forEach(function (col) {
         html += '<th>' + col.label + '</th>';
       });
@@ -1860,7 +1860,7 @@
       }
 
       rows.forEach(function (c) {
-        html += '<tr><td>' + (c.crtvCode || '—') + '</td><td>' + accountLabel(data, c.account) + '</td><td>' +
+        html += '<tr><td>' + (c.creativeName || '—') + '</td><td>' + accountLabel(data, c.account) + '</td><td>' +
           (c.briefName || '') + '</td>';
         CREATIVE_METRIC_COLUMNS.forEach(function (col) {
           html += '<td>' + col.fmt(c.metrics[col.key]) + '</td>';
@@ -1881,7 +1881,7 @@
         return b.metrics.revenue - a.metrics.revenue;
       }).slice(0, 25);
 
-      var html = '<thead><tr><th>#</th><th>CRTV Code</th><th>Media Buyer</th><th>Account</th>' +
+      var html = '<thead><tr><th>#</th><th>Creative Name</th><th>Media Buyer</th><th>Account</th>' +
         '<th>Revenue</th><th>FB Spend</th><th>COM</th></tr></thead><tbody>';
 
       if (rows.length === 0) {
@@ -1890,7 +1890,7 @@
 
       rows.forEach(function (c, i) {
         var color = colorFor(c.person, data.people);
-        html += '<tr><td>' + (i + 1) + '</td><td>' + (c.crtvCode || '—') + '</td><td>' +
+        html += '<tr><td>' + (i + 1) + '</td><td>' + (c.creativeName || '—') + '</td><td>' +
           '<span class="buyer-dot" style="background:' + color + ';"></span>' + c.person + '</td><td>' +
           accountLabel(data, c.account) + '</td><td>' +
           fmtMoney_(c.metrics.revenue) + '</td><td>' + fmtMoney_(c.metrics.fbSpend) + '</td><td>' +

@@ -472,6 +472,15 @@ function attributeCreativeRow_(c, briefByCode, reverseClientNameMap, podConfig) 
   }
   var brief = briefByCode[c.crtvCode];
   if (!brief || podConfig.people.indexOf(brief.person) === -1) return null;
+  // A CRTV code is only unique within one account's Asana project, not
+  // globally in BigQuery — another account entirely could reuse the same
+  // code (or an ad naming coincidence) on an ad tagged with a different
+  // client_name. Only trust the match when BigQuery's client_name for this
+  // row actually resolves back to the SAME account the brief was written
+  // for; otherwise this isn't really the brief's ad, so exclude it rather
+  // than risk crediting one account's revenue to another's media buyer.
+  var expectedClientName = podConfig.adPerformanceClientNameMap[brief.account];
+  if (c.clientName !== expectedClientName) return null;
   return {
     person: brief.person,
     account: brief.account,
@@ -571,6 +580,7 @@ function getCreativePerformanceData() {
     var attr = allAttrs[i];
     return {
       crtvCode: c.crtvCode || null,
+      creativeName: c.adName || attr.briefName,
       account: attr.account,
       briefName: attr.briefName,
       creativeType: attr.creativeType,
