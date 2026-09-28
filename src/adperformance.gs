@@ -591,6 +591,18 @@ function getCreativePerformanceData() {
       creativeType: attr.creativeType,
       person: attr.person,
       month: c.month,
+      // Raw totals alongside the pre-computed ratios: the dashboard's "All
+      // Time" and "Top 25" views combine the same creative across several
+      // months, and ratios (CPL, COM, ...) can't just be averaged — they
+      // have to be recomputed from summed raw numbers.
+      raw: {
+        spend: c.spend,
+        leads: c.leads,
+        sets: c.sets,
+        demos: c.demos,
+        sold: c.sold,
+        revenue: c.revenue
+      },
       metrics: computeCreativeMetrics_({
         spend: c.spend,
         leads: c.leads,

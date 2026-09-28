@@ -1801,6 +1801,59 @@
       });
     }
 
+    // Combines the same creative's rows across whatever months are in
+    // view into one entry, since a "6/2026" row and a "7/2026" row for the
+    // same ad (or CRTV code) are the same creative, not two different
+    // ones — ratio metrics (CPL, COM, ...) are recomputed from the summed
+    // raw totals rather than averaged.
+    function aggregateCreatives_(rows) {
+      var byKey = {};
+      var order = [];
+      rows.forEach(function (c) {
+        var key = c.crtvCode || (c.creativeName + '::' + c.account);
+        if (!byKey[key]) {
+          byKey[key] = {
+            crtvCode: c.crtvCode,
+            creativeName: c.creativeName,
+            account: c.account,
+            person: c.person,
+            raw: { spend: 0, leads: 0, sets: 0, demos: 0, sold: 0, revenue: 0 }
+          };
+          order.push(key);
+        }
+        var raw = byKey[key].raw;
+        raw.spend += c.raw.spend;
+        raw.leads += c.raw.leads;
+        raw.sets += c.raw.sets;
+        raw.demos += c.raw.demos;
+        raw.sold += c.raw.sold;
+        raw.revenue += c.raw.revenue;
+      });
+      return order.map(function (key) {
+        var entry = byKey[key];
+        entry.metrics = computeCreativeMetricsClient_(entry.raw);
+        return entry;
+      });
+    }
+
+    function computeCreativeMetricsClient_(t) {
+      return {
+        lead: t.leads,
+        set: t.sets,
+        demo: t.demos,
+        sold: t.sold,
+        setRate: t.leads ? t.sets / t.leads : 0,
+        cpl: t.leads ? t.spend / t.leads : 0,
+        cpSet: t.sets ? t.spend / t.sets : 0,
+        cpd: t.demos ? t.spend / t.demos : 0,
+        closeRate: t.demos ? t.sold / t.demos : 0,
+        fbSpend: t.spend,
+        revenue: t.revenue,
+        avgTicket: t.sold ? t.revenue / t.sold : 0,
+        com: t.revenue ? t.spend / t.revenue : 0
+      };
+    }
+
     function renderCreativePerfTable(data, month) {
       var table = document.getElementById('creativePerfTable');
       var totalsByPerson = data.totalsByMonth[month] || {};
@@ -1850,9 +1903,9 @@
         return;
       }
       var person = SELECTED_CREATIVE_BUYER;
-      var rows = data.creatives.filter(function (c) {
+      var rows = aggregateCreatives_(data.creatives.filter(function (c) {
         return c.person === person && (month === 'all' || c.month === month);
-      }).sort(function (a, b) {
+      })).sort(function (a, b) {
         return b.metrics.revenue - a.metrics.revenue;
       });
 
@@ -1928,11 +1981,11 @@
     function renderCreativePerfTopTable(data, month) {
       document.getElementById('creativePerfTopMonthLabel').textContent = creativeMonthLabel_(month);
       var table = document.getElementById('creativePerfTopTable');
-      var rows = data.creatives.filter(function (c) {
+      var rows = aggregateCreatives_(data.creatives.filter(function (c) {
         return (month === 'all' || c.month === month) &&
           (SELECTED_TOP_BUYER === 'all' || c.person === SELECTED_TOP_BUYER) &&
           (SELECTED_TOP_ACCOUNT === 'all' || c.account === SELECTED_TOP_ACCOUNT);
-      }).sort(function (a, b) {
+      })).sort(function (a, b) {
         return b.metrics.revenue - a.metrics.revenue;
       }).slice(0, 25);
 
