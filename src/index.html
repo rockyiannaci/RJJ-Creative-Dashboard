@@ -687,6 +687,10 @@
               <div class="sub" style="margin-bottom:6px;">Account</div>
               <div class="week-tabs" id="recentLaunchAccountTabs" style="margin-bottom:0;"></div>
             </div>
+            <div>
+              <div class="sub" style="margin-bottom:6px;">Media Buyer</div>
+              <div class="tabs" id="recentLaunchBuyerFilter" style="margin-bottom:0;"></div>
+            </div>
           </div>
           <div class="card" style="overflow-x:auto;">
             <table class="matrix-table matrix-table-compact" id="recentLaunchTable"></table>
@@ -2149,6 +2153,7 @@
 
     // ---------- Recently Launched Creatives (last 35 days by Asana due date) ----------
     var SELECTED_LAUNCH_ACCOUNT = null;
+    var SELECTED_LAUNCH_BUYER = 'all';
     var LAUNCH_SORT = { key: 'revenue', dir: 'desc' };
     var RECENT_LAUNCH_DATA = null;
 
@@ -2166,11 +2171,40 @@
         };
         container.appendChild(btn);
       });
+
+      var buyerContainer = document.getElementById('recentLaunchBuyerFilter');
+      buyerContainer.innerHTML = '';
+      // Include any person actually on a brief here (e.g. "Other") even
+      // though it's deliberately left out of data.people.
+      var allEntries = Object.keys(data.byAccount).reduce(function (acc, a) {
+        return acc.concat(data.byAccount[a]);
+      }, []);
+      var buyers = data.people.concat(
+        Object.keys(
+          allEntries.reduce(function (acc, b) { acc[b.person] = true; return acc; }, {})
+        ).filter(function (p) { return data.people.indexOf(p) === -1; })
+      );
+      ['all'].concat(buyers).forEach(function (person) {
+        var btn = document.createElement('button');
+        btn.className = 'tab-btn' + (person === SELECTED_LAUNCH_BUYER ? ' active' : '');
+        btn.textContent = person === 'all' ? 'All' : person;
+        if (person === SELECTED_LAUNCH_BUYER) {
+          btn.style.background = person === 'all' ? 'var(--accent)' : colorFor(person, data.people);
+        }
+        btn.onclick = function () {
+          SELECTED_LAUNCH_BUYER = person;
+          renderRecentLaunchTabs(data);
+          renderRecentLaunchTable(data, SELECTED_LAUNCH_ACCOUNT);
+        };
+        buyerContainer.appendChild(btn);
+      });
     }
 
     function renderRecentLaunchTable(data, account) {
       var table = document.getElementById('recentLaunchTable');
-      var withSpend = (data.byAccount[account] || []).filter(function (b) { return b.metrics.fbSpend > 0; });
+      var withSpend = (data.byAccount[account] || []).filter(function (b) {
+        return b.metrics.fbSpend > 0 && (SELECTED_LAUNCH_BUYER === 'all' || b.person === SELECTED_LAUNCH_BUYER);
+      });
       var rows = sortByMetric_(withSpend, LAUNCH_SORT).slice(0, 25);
 
       var html = '<thead><tr><th style="text-align:left;">Creative Name</th><th>Media Buyer</th>' +
