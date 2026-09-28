@@ -512,11 +512,35 @@ function getCreativePerformanceData() {
     );
   });
 
+  // Brief-level rows for the "top revenue creatives" breakdown and each
+  // media buyer's expandable detail table. Filtering/sorting/ranking by
+  // month happens client-side against this flat list.
+  var creatives = matchedRows.map(function (c) {
+    var brief = briefByCode[c.crtvCode];
+    return {
+      crtvCode: c.crtvCode,
+      account: brief.account,
+      briefName: brief.name,
+      creativeType: brief.creativeType,
+      person: brief.person,
+      month: c.month,
+      metrics: computeCreativeMetrics_({
+        spend: c.spend,
+        leads: c.leads,
+        sets: c.sets,
+        demos: c.demos,
+        sold: c.sold,
+        revenue: c.revenue
+      })
+    };
+  });
+
   return {
     configured: true,
     lastCreativeSyncAt: PropertiesService.getScriptProperties().getProperty('LAST_CREATIVE_SYNC_AT') || null,
     people: podConfig.people,
     accountDisplayNames: podConfig.accountDisplayNames || {},
+    creatives: creatives,
     months: months,
     totalsByMonth: totalsByMonth
   };
