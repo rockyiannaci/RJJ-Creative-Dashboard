@@ -604,52 +604,16 @@
         </div>
       </div>
 
-      <div class="page-section" id="page-adperf">
-        <div id="adPerfNotConfigured" style="display:none;">
-          <div class="card">
-            <h2>Ad Performance</h2>
-            <p class="sub" style="margin: 0;">
-              Not synced yet. Run <code>syncAdPerformanceData</code> once from the Apps
-              Script editor — the account deploying this needs BigQuery access to the
-              <code>cdm-ads</code> project themselves. See the README for details.
-            </p>
-          </div>
-        </div>
-
-        <div id="adPerfConnected" style="display:none;">
-          <header style="margin-bottom: 20px;">
-            <div class="sub" id="adPerfSyncLabel"></div>
-          </header>
-
-          <div class="grid" id="adPerfOverviewCards" style="grid-template-columns: repeat(4, 1fr); margin-bottom: 24px;"></div>
-
-          <div class="detail-section">
-            <div class="section-title">By Account (<span id="adPerfMonthLabelAccount"></span>)</div>
-            <div class="card">
-              <table class="matrix-table" id="adPerfAccountTable"></table>
-            </div>
-          </div>
-
-          <div class="detail-section">
-            <div class="section-title">By Media Buyer (<span id="adPerfMonthLabelPerson"></span>)</div>
-            <div class="card">
-              <table class="matrix-table" id="adPerfPersonTable"></table>
-            </div>
-          </div>
-        </div>
-      </div>
-
       <div class="page-section" id="page-creativeperf">
         <div id="creativePerfNotConfigured" style="display:none;">
           <div class="card">
             <h2>Creative Performance</h2>
             <p class="sub" style="margin: 0;">
               Not synced yet. Run <code>syncCreativePerformanceData</code> once from the
-              Apps Script editor (needs the same BigQuery access as Ad Performance).
+              Apps Script editor (needs BigQuery access to the <code>cdm-ads</code> project).
               This joins each brief's CRTV code to its ad's performance in BigQuery, so
               it shows how each media buyer's own briefed creatives actually performed —
-              distinct from the "By Media Buyer" table on the Ad Performance tab, which
-              only reflects who operates the ad account.
+              rather than who merely operates the ad account.
             </p>
           </div>
         </div>
@@ -781,7 +745,6 @@
       { id: 'clientdetail', label: 'Client Detail' },
       { id: 'matrix', label: 'Weekly & Monthly Matrix' },
       { id: 'comparison', label: 'Performance Comparison' },
-      { id: 'adperf', label: 'Ad Performance' },
       { id: 'creativeperf', label: 'Creative Performance' }
     ];
     var ACTIVE_SECTION = 'overview';
@@ -1708,65 +1671,11 @@
         .getDashboardData();
     }
 
-    // ---------- Ad Performance (BigQuery-backed, optional) ----------
     function fmtMoney_(n) {
       return '$' + Math.round(n).toLocaleString();
     }
     function fmtPct_(n) {
       return (Math.round(n * 1000) / 10).toFixed(1) + '%';
-    }
-
-    function renderAdPerformance(result) {
-      if (!result || !result.configured) {
-        document.getElementById('adPerfNotConfigured').style.display = 'block';
-        document.getElementById('adPerfConnected').style.display = 'none';
-        return;
-      }
-      document.getElementById('adPerfNotConfigured').style.display = 'none';
-      document.getElementById('adPerfConnected').style.display = 'block';
-
-      document.getElementById('adPerfSyncLabel').textContent = result.lastAdSyncAt
-        ? 'Last synced: ' + new Date(result.lastAdSyncAt).toLocaleString()
-        : 'Not synced yet';
-      var monthText = monthLabel(result.currentMonthKey);
-      document.getElementById('adPerfMonthLabelAccount').textContent = monthText;
-      document.getElementById('adPerfMonthLabelPerson').textContent = monthText;
-
-      var o = result.overall;
-      var cards = document.getElementById('adPerfOverviewCards');
-      cards.innerHTML = '';
-      cards.appendChild(statCard('Spend', fmtMoney_(o.spend), monthText + ' to date'));
-      cards.appendChild(statCard('Leads', o.leads.toLocaleString(), monthText + ' to date'));
-      cards.appendChild(statCard('Cost / Lead', fmtMoney_(o.costPerLead)));
-      cards.appendChild(statCard('ROAS', o.roas.toFixed(2) + 'x'));
-
-      function metricsRow(label, m) {
-        return '<tr><td>' + label + '</td><td>' + fmtMoney_(m.spend) + '</td><td>' + m.leads.toLocaleString() +
-          '</td><td>' + m.sets.toLocaleString() + '</td><td>' + m.demos.toLocaleString() + '</td><td>' +
-          m.sold.toLocaleString() + '</td><td>' + fmtMoney_(m.costPerLead) + '</td><td>' + m.roas.toFixed(2) + 'x</td></tr>';
-      }
-      var headerRow = '<thead><tr><th></th><th>Spend</th><th>Leads</th><th>Sets</th><th>Demos</th><th>Sold</th><th>CPL</th><th>ROAS</th></tr></thead>';
-
-      var accountTable = document.getElementById('adPerfAccountTable');
-      var accountBody = result.accounts.map(function (a) {
-        return metricsRow(accountLabel(result, a), result.byAccount[a]);
-      }).join('');
-      accountTable.innerHTML = headerRow + '<tbody>' + accountBody + '</tbody>';
-
-      var personTable = document.getElementById('adPerfPersonTable');
-      var personBody = result.people.map(function (p) {
-        return metricsRow(p, result.byPerson[p]);
-      }).join('');
-      personTable.innerHTML = headerRow + '<tbody>' + personBody + '</tbody>';
-    }
-
-    function loadAdPerformance() {
-      google.script.run
-        .withSuccessHandler(renderAdPerformance)
-        .withFailureHandler(function () {
-          renderAdPerformance({ configured: false });
-        })
-        .getAdPerformanceData();
     }
 
     // ---------- Creative Performance (CRTV-code-matched brief results) ----------
@@ -2299,7 +2208,6 @@
     }
 
     loadDashboard();
-    loadAdPerformance();
     loadCreativePerformance();
     loadRecentLaunches();
   </script>
