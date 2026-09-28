@@ -1723,8 +1723,20 @@
       });
     }
 
+    // These are all ratios (spend/leads, spend/sets, revenue/sold, ...)
+    // that fall back to 0 when their denominator is 0 leads/sets/demos/
+    // sold/revenue, i.e. a creative with no real data yet, not a genuine
+    // best-case low cost or ratio. Ascending sort on one of these should
+    // surface the best REAL performers, so those zero-data rows are
+    // dropped rather than flooding the top of the list.
+    var CREATIVE_ZERO_IS_NO_DATA_METRICS = ['setRate', 'cpl', 'cpSet', 'cpd', 'closeRate', 'avgTicket', 'com'];
+
     function sortByMetric_(rows, sortState) {
-      return rows.slice().sort(function (a, b) {
+      var candidates = rows;
+      if (sortState.dir === 'asc' && CREATIVE_ZERO_IS_NO_DATA_METRICS.indexOf(sortState.key) !== -1) {
+        candidates = rows.filter(function (r) { return r.metrics[sortState.key] !== 0; });
+      }
+      return candidates.slice().sort(function (a, b) {
         var diff = a.metrics[sortState.key] - b.metrics[sortState.key];
         return sortState.dir === 'desc' ? -diff : diff;
       });
@@ -1979,7 +1991,7 @@
 
       rows.forEach(function (c, i) {
         var color = colorFor(c.person, data.people);
-        html += '<tr><td>' + (i + 1) + '</td><td style="text-align:left;">' + (c.creativeName || '—') + '</td><td>' +
+        html += '<tr><td>' + (i + 1) + '</td><td style="text-align:left;">' + (c.creativeName || '—') + '</td><td style="white-space:nowrap;">' +
           '<span class="buyer-dot" style="background:' + color + ';"></span>' + c.person + '</td><td>' +
           accountLabel(data, c.account) + '</td>';
         CREATIVE_METRIC_COLUMNS.forEach(function (col) {
@@ -2156,7 +2168,7 @@
       rows.forEach(function (b) {
         var color = colorFor(b.person, data.people);
         html += '<tr><td style="text-align:left;">' + (b.creativeName || '—') +
-          '</td><td><span class="buyer-dot" style="background:' + color + ';"></span>' + b.person + '</td>';
+          '</td><td style="white-space:nowrap;"><span class="buyer-dot" style="background:' + color + ';"></span>' + b.person + '</td>';
         CREATIVE_METRIC_COLUMNS.forEach(function (col) {
           var isActive = col.key === LAUNCH_SORT.key;
           html += '<td style="' + (isActive ? 'font-weight:700;' : '') + '">' + col.fmt(b.metrics[col.key]) + '</td>';
