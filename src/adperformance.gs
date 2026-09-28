@@ -327,8 +327,25 @@ function writeCreativeDataSheet_(ss, rows) {
     sheet.getRange(2, 1, sheet.getMaxRows() - 1, sheet.getMaxColumns()).clearContent();
   }
   if (rows.length > 0) {
+    // Force the month column (C, "yyyy-MM") to plain text so Sheets doesn't
+    // auto-convert it into a Date cell, which would break the dashboard's
+    // string-based month tabs.
+    sheet.getRange(2, 3, rows.length, 1).setNumberFormat('@');
     sheet.getRange(2, 1, rows.length, rows[0].length).setValues(rows);
   }
+}
+
+/**
+ * Sheets can auto-convert a "yyyy-MM" string into a real Date cell despite
+ * the '@' text format above (if the cell already held a Date from before
+ * that format was applied), so normalize both possible shapes back to
+ * "yyyy-MM" on read, the same way normalizeDateCell_ does for week_start.
+ */
+function normalizeMonthCell_(value) {
+  if (value instanceof Date) {
+    return Utilities.formatDate(value, Session.getScriptTimeZone(), 'yyyy-MM');
+  }
+  return value;
 }
 
 /**
@@ -389,7 +406,7 @@ function readCreativePerformanceRows_() {
     return {
       crtvCode: String(r[0] || '').trim().toUpperCase(),
       clientName: r[1],
-      month: r[2],
+      month: normalizeMonthCell_(r[2]),
       spend: r[3],
       leads: r[4],
       sets: r[5],
