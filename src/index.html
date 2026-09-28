@@ -1810,7 +1810,13 @@
       var byKey = {};
       var order = [];
       rows.forEach(function (c) {
-        var key = c.crtvCode || (c.creativeName + '::' + c.account);
+        // Group by ad name (not CRTV code) so this matches Looker Studio's
+        // own ad-level breakdown: a brief's CRTV code can cover several
+        // distinct ads (different counties/geo-targets, active vs paused
+        // status variants of the same name), and those should stay as
+        // separate rows here too, not get summed into one inflated total
+        // under the brief's code.
+        var key = c.creativeName + '::' + c.account;
         if (!byKey[key]) {
           byKey[key] = {
             crtvCode: c.crtvCode,
