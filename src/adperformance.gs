@@ -278,10 +278,12 @@ function getAdPerformanceData() {
 
 var CREATIVE_SHEET_NAME = 'CreativePerformance';
 var CRTV_REGEX = '(?i)(CRTV-[0-9]+)';
-// Fixed start date (not a rolling lookback) so every month tab from January
-// onward always has a complete month's worth of data, rather than the
-// oldest visible month being partial depending on when the sync last ran.
-var CREATIVE_SYNC_START_DATE = '2026-01-01';
+// Fixed start date (not a rolling lookback) so every month tab has a
+// complete month's worth of data, rather than the oldest visible month
+// being partial depending on when the sync last ran. Held at June 2026 for
+// now — the data team's Jan–May figures are unreliable at this account's
+// current spend/lead volume; move this back once they can re-pull it.
+var CREATIVE_SYNC_START_DATE = '2026-06-01';
 
 function buildCreativePerformanceQuery_(podConfig) {
   var cfg = AD_PERFORMANCE_CONFIG;
@@ -304,6 +306,10 @@ function buildCreativePerformanceQuery_(podConfig) {
     'FROM `' + cfg.projectId + '.' + cfg.dataset + '.' + cfg.table + '`',
     'WHERE ' + cfg.dateColumn + ' >= ' + bqStringLiteral_(CREATIVE_SYNC_START_DATE),
     '  AND ' + cfg.clientNameColumn + ' IN (' + clientNames.join(', ') + ')',
+    // "Unassigned ..." rows are BigQuery's own catch-all bucket for spend
+    // that never resolved to a specific ad, not a real creative — exclude
+    // them rather than crediting that spend/revenue to any media buyer.
+    "  AND NOT REGEXP_CONTAINS(ad_name, '(?i)unassigned')",
     // No CRTV code (a static image, per the pod's convention) still counts —
     // getCreativePerformanceData() attributes those to Rocky directly.
     'GROUP BY crtv_code, ad_name, client_name, month'
@@ -430,7 +436,6 @@ function computeCreativeMetrics_(t) {
     cpl: t.leads ? t.spend / t.leads : 0,
     cpSet: t.sets ? t.spend / t.sets : 0,
     cpd: t.demos ? t.spend / t.demos : 0,
-    cpSale: t.sold ? t.spend / t.sold : 0,
     closeRate: t.demos ? t.sold / t.demos : 0,
     fbSpend: t.spend,
     revenue: t.revenue,
