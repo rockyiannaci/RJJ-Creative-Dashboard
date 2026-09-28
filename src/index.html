@@ -1999,7 +1999,7 @@
       }));
       var rows = sortByMetric_(filtered, CREATIVE_TOP_SORT).slice(0, 25);
 
-      var html = '<thead><tr><th>#</th><th style="text-align:left;">Creative Name</th><th>Media Buyer</th><th>Account</th>' +
+      var html = '<thead><tr><th>#</th><th style="text-align:left;">Creative Name</th><th style="text-align:left;">Media Buyer</th><th>Account</th>' +
         sortableHeaderCellsHtml_(CREATIVE_TOP_SORT) + '</tr></thead><tbody>';
 
       if (rows.length === 0) {
@@ -2009,7 +2009,7 @@
 
       rows.forEach(function (c, i) {
         var color = colorFor(c.person, data.people);
-        html += '<tr><td>' + (i + 1) + '</td><td class="creative-name-cell" style="text-align:left;">' + (c.creativeName || '—') + '</td><td style="white-space:nowrap;">' +
+        html += '<tr><td>' + (i + 1) + '</td><td class="creative-name-cell" style="text-align:left;">' + (c.creativeName || '—') + '</td><td style="white-space:nowrap; text-align:left;">' +
           '<span class="buyer-dot" style="background:' + color + ';"></span>' + c.person + '</td><td>' +
           accountLabel(data, c.account) + '</td>';
         CREATIVE_METRIC_COLUMNS.forEach(function (col) {
@@ -2207,7 +2207,7 @@
       });
       var rows = sortByMetric_(withSpend, LAUNCH_SORT).slice(0, 25);
 
-      var html = '<thead><tr><th style="text-align:left;">Creative Name</th><th>Media Buyer</th>' +
+      var html = '<thead><tr><th style="text-align:left;">Creative Name</th><th style="text-align:left;">Media Buyer</th>' +
         sortableHeaderCellsHtml_(LAUNCH_SORT) + '</tr></thead><tbody>';
 
       if (rows.length === 0) {
@@ -2219,7 +2219,7 @@
       rows.forEach(function (b) {
         var color = colorFor(b.person, data.people);
         html += '<tr><td class="creative-name-cell" style="text-align:left;">' + (b.creativeName || '—') +
-          '</td><td style="white-space:nowrap;"><span class="buyer-dot" style="background:' + color + ';"></span>' + b.person + '</td>';
+          '</td><td style="white-space:nowrap; text-align:left;"><span class="buyer-dot" style="background:' + color + ';"></span>' + b.person + '</td>';
         CREATIVE_METRIC_COLUMNS.forEach(function (col) {
           var isActive = col.key === LAUNCH_SORT.key;
           var isKey = CREATIVE_TOP_KEY_METRICS.indexOf(col.key) !== -1;
