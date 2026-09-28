@@ -247,17 +247,26 @@
       font-weight: 700;
     }
     /* Tighter columns for the wide creative tables (17 columns) so COM at
-       the far right fits on screen without a horizontal scroll. */
+       the far right fits on screen without a horizontal scroll — the
+       Creative Name column is capped narrow so the freed-up width goes to
+       making the metrics themselves bigger and easier to read. */
     .matrix-table-compact th, .matrix-table-compact td {
-      padding: 8px 6px;
-      font-size: 12.5px;
+      padding: 9px 7px;
+      font-size: 14px;
       white-space: nowrap;
     }
     .matrix-table-compact .creative-name-cell {
       white-space: normal;
+      max-width: 130px;
     }
     .matrix-table-compact thead th {
-      font-size: 10.5px;
+      font-size: 11px;
+    }
+    /* The metrics we actually act on (CPL, CPSet, CPD, Revenue, COM) —
+       bigger and bolder than the rest so they stand out at a glance. */
+    .matrix-table-compact .key-metric-cell {
+      font-size: 16px;
+      font-weight: 800;
     }
     .buyer-dot {
       display: inline-block;
@@ -1694,7 +1703,16 @@
     var SELECTED_CREATIVE_MONTH = 'all';
     var SELECTED_CREATIVE_BUYER = null;
     var CREATIVE_PERF_KEY_METRICS = ['cpl', 'cpSet', 'cpd', 'com'];
-    var CREATIVE_TOP_KEY_METRICS = ['cpl', 'cpSet', 'cpd', 'revenue'];
+    var CREATIVE_TOP_KEY_METRICS = ['cpl', 'cpSet', 'cpd', 'revenue', 'com'];
+
+    // "Rocky Iannaci" -> "RI". Left as-is for anything that isn't a
+    // person's full name (e.g. "Other"), which has no initials to take.
+    function personInitials_(name) {
+      if (!name || name === 'Other') return name;
+      var parts = name.trim().split(/\s+/);
+      if (parts.length < 2) return name.toUpperCase();
+      return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+    }
 
     var CREATIVE_METRIC_COLUMNS = [
       { key: 'lead', label: 'Lead', fmt: function (v) { return Math.round(v).toLocaleString(); } },
@@ -2010,13 +2028,14 @@
       rows.forEach(function (c, i) {
         var color = colorFor(c.person, data.people);
         html += '<tr><td>' + (i + 1) + '</td><td class="creative-name-cell" style="text-align:left;">' + (c.creativeName || '—') + '</td><td style="white-space:nowrap; text-align:left;">' +
-          '<span class="buyer-dot" style="background:' + color + ';"></span>' + c.person + '</td><td>' +
+          '<span class="buyer-dot" style="background:' + color + ';"></span>' + personInitials_(c.person) + '</td><td>' +
           accountLabel(data, c.account) + '</td>';
         CREATIVE_METRIC_COLUMNS.forEach(function (col) {
           var isActive = col.key === CREATIVE_TOP_SORT.key;
           var isKey = CREATIVE_TOP_KEY_METRICS.indexOf(col.key) !== -1;
-          var style = (isActive || isKey ? 'font-weight:700;' : '') + (isKey ? 'background:' + hexToRgba_(color, 0.12) + ';' : '');
-          html += '<td style="' + style + '">' + col.fmt(c.metrics[col.key]) + '</td>';
+          var cls = isKey ? 'key-metric-cell' : '';
+          var style = (isActive && !isKey ? 'font-weight:700;' : '') + (isKey ? 'background:' + hexToRgba_(color, 0.12) + ';' : '');
+          html += '<td class="' + cls + '" style="' + style + '">' + col.fmt(c.metrics[col.key]) + '</td>';
         });
         html += '</tr>';
       });
@@ -2225,13 +2244,14 @@
       rows.forEach(function (b) {
         var color = colorFor(b.person, data.people);
         html += '<tr><td class="creative-name-cell" style="text-align:left;">' + (b.creativeName || '—') +
-          '</td><td style="white-space:nowrap; text-align:left;"><span class="buyer-dot" style="background:' + color + ';"></span>' + b.person +
+          '</td><td style="white-space:nowrap; text-align:left;"><span class="buyer-dot" style="background:' + color + ';"></span>' + personInitials_(b.person) +
           '</td><td>' + accountLabel(data, b.account) + '</td>';
         CREATIVE_METRIC_COLUMNS.forEach(function (col) {
           var isActive = col.key === LAUNCH_SORT.key;
           var isKey = CREATIVE_TOP_KEY_METRICS.indexOf(col.key) !== -1;
-          var style = (isActive || isKey ? 'font-weight:700;' : '') + (isKey ? 'background:' + hexToRgba_(color, 0.12) + ';' : '');
-          html += '<td style="' + style + '">' + col.fmt(b.metrics[col.key]) + '</td>';
+          var cls = isKey ? 'key-metric-cell' : '';
+          var style = (isActive && !isKey ? 'font-weight:700;' : '') + (isKey ? 'background:' + hexToRgba_(color, 0.12) + ';' : '');
+          html += '<td class="' + cls + '" style="' + style + '">' + col.fmt(b.metrics[col.key]) + '</td>';
         });
         html += '</tr>';
       });
