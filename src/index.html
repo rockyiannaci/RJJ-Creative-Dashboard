@@ -2155,7 +2155,7 @@
 
       rows.forEach(function (b) {
         var color = colorFor(b.person, data.people);
-        html += '<tr><td style="text-align:left;">' + (b.briefName || '') +
+        html += '<tr><td style="text-align:left;">' + (b.creativeName || '—') +
           '</td><td><span class="buyer-dot" style="background:' + color + ';"></span>' + b.person + '</td>';
         CREATIVE_METRIC_COLUMNS.forEach(function (col) {
           var isActive = col.key === LAUNCH_SORT.key;

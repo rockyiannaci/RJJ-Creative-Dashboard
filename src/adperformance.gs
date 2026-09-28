@@ -712,9 +712,20 @@ function getRecentlyLaunchedCreatives() {
     });
     var rawTotals = sumCreativeTotals_(matchingAdRows);
 
+    // The Asana task name is a brief description, not the actual creative
+    // name Ads Manager/Looker use — show the real ad_name from whichever
+    // matching BigQuery row has the most revenue (the brief's CRTV code can
+    // cover several ad variants). Falls back to the brief name only if it
+    // hasn't started spending yet, so there's nothing to join to.
+    var topAdRow = matchingAdRows.reduce(function (best, c) {
+      return !best || c.revenue > best.revenue ? c : best;
+    }, null);
+    var creativeName = topAdRow ? topAdRow.adName : b.name;
+
     if (!byAccount[b.account]) byAccount[b.account] = [];
     byAccount[b.account].push({
       crtvCode: code,
+      creativeName: creativeName,
       briefName: b.name,
       dueOn: b.dueOn,
       person: b.person,
