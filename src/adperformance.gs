@@ -661,6 +661,7 @@ function getCreativePerformanceData() {
     configured: true,
     lastCreativeSyncAt: PropertiesService.getScriptProperties().getProperty('LAST_CREATIVE_SYNC_AT') || null,
     people: podConfig.people,
+    accounts: podConfig.accounts,
     accountDisplayNames: podConfig.accountDisplayNames || {},
     creatives: creatives,
     months: months,

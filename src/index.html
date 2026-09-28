@@ -1989,8 +1989,13 @@
 
       var accountContainer = document.getElementById('creativePerfTopAccountFilter');
       accountContainer.innerHTML = '';
-      var accounts = Object.keys(
-        data.creatives.reduce(function (acc, c) { acc[c.account] = true; return acc; }, {})
+      // Canonical account order (same as every other table), plus any
+      // unexpected value a creative row might carry that isn't one of the
+      // pod's six mapped accounts.
+      var accounts = data.accounts.concat(
+        Object.keys(
+          data.creatives.reduce(function (acc, c) { acc[c.account] = true; return acc; }, {})
+        ).filter(function (a) { return data.accounts.indexOf(a) === -1; })
       );
       ['all'].concat(accounts).forEach(function (account) {
         var btn = document.createElement('button');
