@@ -1937,10 +1937,10 @@
       }).slice(0, 25);
 
       var html = '<thead><tr><th>#</th><th style="text-align:left;">Creative Name</th><th>Media Buyer</th><th>Account</th>' +
-        '<th>Revenue</th><th>FB Spend</th><th>COM</th></tr></thead><tbody>';
+        '<th>CPL</th><th>CPSet</th><th>CPD</th><th>Revenue</th><th>FB Spend</th><th>COM</th></tr></thead><tbody>';
 
       if (rows.length === 0) {
-        html += '<tr><td colspan="7" style="color:var(--muted); text-align:center;">No matched creatives for this period</td></tr>';
+        html += '<tr><td colspan="10" style="color:var(--muted); text-align:center;">No matched creatives for this period</td></tr>';
       }
 
       rows.forEach(function (c, i) {
@@ -1948,6 +1948,7 @@
         html += '<tr><td>' + (i + 1) + '</td><td style="text-align:left;">' + (c.creativeName || '—') + '</td><td>' +
           '<span class="buyer-dot" style="background:' + color + ';"></span>' + c.person + '</td><td>' +
           accountLabel(data, c.account) + '</td><td>' +
+          fmtMoney_(c.metrics.cpl) + '</td><td>' + fmtMoney_(c.metrics.cpSet) + '</td><td>' + fmtMoney_(c.metrics.cpd) + '</td><td>' +
           fmtMoney_(c.metrics.revenue) + '</td><td>' + fmtMoney_(c.metrics.fbSpend) + '</td><td>' +
           fmtPct_(c.metrics.com) + '</td></tr>';
       });
