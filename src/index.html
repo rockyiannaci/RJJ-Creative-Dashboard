@@ -273,11 +273,12 @@
       width: 56px;
     }
     .lb-hero {
-      background: linear-gradient(135deg, #171a3a 0%, #2b2f80 55%, #4f5bff 100%);
+      background: var(--card);
+      background-image: linear-gradient(180deg, rgba(79, 91, 255, 0.08), rgba(79, 91, 255, 0) 180px);
+      border: 1px solid var(--border);
       border-radius: 20px;
       padding: 24px;
-      color: #fff;
-      box-shadow: 0 10px 30px rgba(79, 91, 255, 0.22);
+      box-shadow: 0 8px 24px rgba(79, 91, 255, 0.08);
     }
     .lb-head {
       display: flex;
@@ -285,15 +286,23 @@
       align-items: flex-start;
       gap: 16px;
       flex-wrap: wrap;
-      margin-bottom: 18px;
+      margin-bottom: 6px;
     }
-    .lb-title { font-size: 22px; font-weight: 800; letter-spacing: -0.02em; }
-    .lb-sub { margin: 6px 0 0; font-size: 13px; color: rgba(255,255,255,0.75); max-width: 640px; }
+    .lb-title { font-size: 22px; font-weight: 800; letter-spacing: -0.02em; color: var(--text); }
+    .lb-sub { margin: 6px 0 0; font-size: 13px; color: var(--muted); max-width: 640px; }
+    .lb-note {
+      margin: 10px 0 16px;
+      font-size: 13px;
+      color: var(--text);
+      background: rgba(79, 91, 255, 0.07);
+      border-radius: 10px;
+      padding: 9px 12px;
+    }
     .lb-tabs { display: flex; gap: 8px; flex-wrap: wrap; }
     .lb-tab {
-      border: 1px solid rgba(255,255,255,0.35);
-      background: rgba(255,255,255,0.10);
-      color: #fff;
+      border: 1px solid var(--border);
+      background: var(--card);
+      color: var(--text);
       padding: 8px 16px;
       border-radius: 999px;
       font-size: 13px;
@@ -301,7 +310,7 @@
       font-family: inherit;
       cursor: pointer;
     }
-    .lb-tab.active { background: #fff; color: #2b2f80; border-color: #fff; }
+    .lb-tab.active { background: var(--accent); color: #fff; border-color: transparent; }
     .lb-podium {
       display: grid;
       grid-template-columns: repeat(3, 1fr);
@@ -310,32 +319,40 @@
     }
     @media (max-width: 900px) { .lb-podium { grid-template-columns: 1fr; } }
     .lb-card {
-      background: rgba(255,255,255,0.09);
-      border: 1px solid rgba(255,255,255,0.18);
-      border-top: 4px solid #fff;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-top: 4px solid var(--c);
       border-radius: 16px;
       padding: 16px 18px;
     }
-    .lb-card.lb-first {
-      background: rgba(255,255,255,0.18);
-      border-color: rgba(255,255,255,0.4);
-      box-shadow: 0 6px 24px rgba(0,0,0,0.25);
+    .lb-card.lb-first { box-shadow: 0 8px 22px rgba(20, 20, 28, 0.10); }
+    .lb-top { display: flex; align-items: center; gap: 12px; }
+    .lb-badge {
+      width: 30px; height: 30px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 14px; font-weight: 800; color: #fff; flex: 0 0 auto;
+      background: #9aa0ae;
     }
-    .lb-rank { font-size: 12px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: rgba(255,255,255,0.7); }
-    .lb-first .lb-rank { color: #ffd166; }
-    .lb-name { font-size: 16px; font-weight: 700; margin-top: 4px; }
-    .lb-revenue { font-size: 32px; font-weight: 800; letter-spacing: -0.02em; margin-top: 8px; line-height: 1.1; }
-    .lb-revenue-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: rgba(255,255,255,0.65); margin-bottom: 12px; }
-    .lb-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px 8px; }
-    .lb-stat span { display: block; font-size: 10px; text-transform: uppercase; letter-spacing: 0.05em; color: rgba(255,255,255,0.65); }
-    .lb-stat strong { font-size: 15px; font-weight: 700; }
-    .lb-table-card {
-      background: var(--card);
-      color: var(--text);
-      border-radius: 14px;
-      padding: 8px 12px;
-      overflow-x: auto;
-    }
+    .lb-badge-1 { background: #f0b429; }
+    .lb-badge-2 { background: #9aa0ae; }
+    .lb-badge-3 { background: #c77d3a; }
+    .lb-who { flex: 1 1 auto; min-width: 0; }
+    .lb-name { font-size: 16px; font-weight: 700; color: var(--text); }
+    .lb-meta { font-size: 12px; color: var(--muted); margin-top: 2px; }
+    .lb-score { text-align: right; flex: 0 0 auto; }
+    .lb-score strong { display: block; font-size: 30px; line-height: 1; font-weight: 800; color: var(--c); }
+    .lb-score span { font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); }
+    .lb-bars { margin-top: 14px; display: grid; gap: 10px; }
+    .lb-bar-head { display: flex; justify-content: space-between; align-items: baseline; font-size: 12px; }
+    .lb-bar-head b { font-size: 14px; color: var(--text); }
+    .lb-bar-label { color: var(--muted); font-weight: 600; }
+    .lb-gap { font-size: 11px; font-weight: 700; margin-left: 8px; }
+    .lb-gap-best { color: #1f9d6b; }
+    .lb-gap-behind { color: #d9480f; }
+    .lb-track { height: 6px; background: var(--bg); border-radius: 999px; margin-top: 4px; overflow: hidden; }
+    .lb-fill { height: 100%; background: var(--c); border-radius: 999px; }
+    .lb-tip { margin-top: 14px; font-size: 12px; color: var(--text); background: var(--bg); border-radius: 10px; padding: 8px 10px; }
+    .lb-table-card { overflow-x: auto; border-top: 1px solid var(--border); padding-top: 8px; }
     .buyer-dot {
       display: inline-block;
       width: 10px;
@@ -503,6 +520,7 @@
             </div>
             <div class="lb-tabs" id="leaderboardTabs"></div>
           </div>
+          <p class="lb-note">Bonus score = CPL (35%) + CPSet (45%) + COM (20%). Each cost is scored against the best in the pod, so 100 means you lead all three.</p>
           <div class="lb-podium" id="leaderboardPodium"></div>
           <div class="lb-table-card">
             <table class="matrix-table" id="leaderboardTable"></table>
@@ -2375,16 +2393,18 @@
     // ---------- Overview leaderboard (Rocky vs Julian vs Jay) ----------
     var LEADERBOARD_DATA = null;
     var SELECTED_LEADERBOARD_WINDOW = 'matured';
-    var LEADERBOARD_SORT = { key: 'revenue', dir: 'desc' };
+    var LEADERBOARD_SORT = { key: 'score', dir: 'desc' };
+    var LEADERBOARD_BONUS_WEIGHTS = { cpl: 0.35, cpSet: 0.45, com: 0.20 };
     var LEADERBOARD_KEY_METRICS = ['cpl', 'cpSet', 'cpd', 'com'];
     var LEADERBOARD_COLUMNS = [
+      { key: 'score', label: 'Bonus Score', fmt: function (v) { return Math.round(v).toString(); } },
       { key: 'creatives', label: 'Creatives', fmt: function (v) { return Math.round(v).toLocaleString(); } },
-      { key: 'cpl', label: 'CPL', fmt: fmtMoney_ },
-      { key: 'cpSet', label: 'CPSet', fmt: fmtMoney_ },
+      { key: 'cpl', label: 'CPL · 35%', fmt: fmtMoney_ },
+      { key: 'cpSet', label: 'CPSet · 45%', fmt: fmtMoney_ },
       { key: 'cpd', label: 'CPD', fmt: fmtMoney_ },
       { key: 'fbSpend', label: 'FB Spend', fmt: fmtMoney_ },
       { key: 'revenue', label: 'Revenue', fmt: fmtMoney_ },
-      { key: 'com', label: 'COM', fmt: fmtPct_ }
+      { key: 'com', label: 'COM · 20%', fmt: fmtPct_ }
     ];
 
     // "2026-08-18" -> "Aug 18"
@@ -2413,25 +2433,71 @@
       });
     }
 
+    // Each bonus cost is scored against the best (lowest) value in the pod:
+    // best / yours, so the leader scores 1.0 and everyone else falls off in
+    // proportion to how much more they pay. Weighted 35/45/20 into 0-100.
+    function scoreLeaderboard_(win) {
+      var keys = Object.keys(LEADERBOARD_BONUS_WEIGHTS);
+      var best = {};
+      keys.forEach(function (k) {
+        var vals = win.rows.map(function (r) { return r.metrics[k]; }).filter(function (v) { return v > 0; });
+        best[k] = vals.length ? Math.min.apply(null, vals) : 0;
+      });
+      win.rows.forEach(function (r) {
+        var total = 0;
+        r.bonus = {};
+        keys.forEach(function (k) {
+          var v = r.metrics[k];
+          var ratio = v > 0 && best[k] > 0 ? best[k] / v : 0;
+          var w = LEADERBOARD_BONUS_WEIGHTS[k];
+          r.bonus[k] = { value: v, best: best[k], ratio: ratio, weight: w, lost: w * (1 - ratio) * 100 };
+          total += w * ratio * 100;
+        });
+        r.metrics.score = total;
+      });
+      win.scored = true;
+    }
+
+    function leaderboardTip_(r) {
+      var labels = { cpl: 'CPL', cpSet: 'CPSet', com: 'COM' };
+      var worst = null;
+      Object.keys(r.bonus).forEach(function (k) {
+        if (!worst || r.bonus[k].lost > r.bonus[worst].lost) worst = k;
+      });
+      var b = r.bonus[worst];
+      if (b.lost < 0.5) return 'Leading on every bonus metric. Hold the line.';
+      if (b.value <= 0) return 'No ' + labels[worst] + ' data in this range yet. It carries ' + Math.round(b.weight * 100) + '% of the bonus.';
+      var fmt = worst === 'com' ? fmtPct_ : fmtMoney_;
+      return 'Biggest opportunity: ' + labels[worst] + ' (' + Math.round(b.weight * 100) + '% of bonus) at ' + fmt(b.value) +
+        ' vs best ' + fmt(b.best) + '. Closing that gap is worth up to +' + Math.round(b.lost) + ' pts.';
+    }
+
     function renderLeaderboardPodium(data, win) {
       var el = document.getElementById('leaderboardPodium');
-      var ordinals = ['1st', '2nd', '3rd'];
-      var ranked = win.rows.slice().sort(function (a, b) { return b.metrics.revenue - a.metrics.revenue; });
+      var ranked = win.rows.slice().sort(function (a, b) { return b.metrics.score - a.metrics.score; });
+      var rows = [['cpl', 'CPL', fmtMoney_], ['cpSet', 'CPSet', fmtMoney_], ['com', 'COM', fmtPct_]];
       el.innerHTML = ranked.map(function (r, i) {
         var color = colorFor(r.person, data.people);
         var m = r.metrics;
-        function stat(label, value) {
-          return '<div class="lb-stat"><span>' + label + '</span><strong>' + value + '</strong></div>';
-        }
-        return '<div class="lb-card' + (i === 0 ? ' lb-first' : '') + '" style="border-top-color:' + color + ';">' +
-          '<div class="lb-rank">' + (ordinals[i] || (i + 1) + 'th') + ' by revenue</div>' +
-          '<div class="lb-name"><span class="buyer-dot" style="background:' + color + ';"></span>' + r.person + '</div>' +
-          '<div class="lb-revenue">' + fmtMoney_(m.revenue) + '</div><div class="lb-revenue-label">Revenue</div>' +
-          '<div class="lb-stats">' +
-            stat('Creatives', Math.round(m.creatives).toLocaleString()) + stat('CPL', fmtMoney_(m.cpl)) +
-            stat('CPSet', fmtMoney_(m.cpSet)) + stat('CPD', fmtMoney_(m.cpd)) +
-            stat('COM', fmtPct_(m.com)) + stat('Spend', fmtMoney_(m.fbSpend)) +
-          '</div></div>';
+        var bars = rows.map(function (row) {
+          var b = r.bonus[row[0]];
+          var isBest = b.value > 0 && b.ratio >= 0.9999;
+          var gap = b.value <= 0 ? '<span class="lb-gap lb-gap-behind">no data</span>'
+            : isBest ? '<span class="lb-gap lb-gap-best">Best in pod</span>'
+            : '<span class="lb-gap lb-gap-behind">+' + Math.round((b.value / b.best - 1) * 100) + '% vs best</span>';
+          return '<div><div class="lb-bar-head"><span class="lb-bar-label">' + row[1] + ' \u00b7 ' + Math.round(b.weight * 100) + '%</span>' +
+            '<span><b>' + (b.value > 0 ? row[2](b.value) : '\u2014') + '</b>' + gap + '</span></div>' +
+            '<div class="lb-track"><div class="lb-fill" style="width:' + Math.round(b.ratio * 100) + '%;"></div></div></div>';
+        }).join('');
+        return '<div class="lb-card' + (i === 0 ? ' lb-first' : '') + '" style="--c:' + color + ';' +
+          (i === 0 ? 'background:' + hexToRgba_(color, 0.05) + ';' : '') + '">' +
+          '<div class="lb-top"><span class="lb-badge lb-badge-' + (i + 1) + '">' + (i + 1) + '</span>' +
+          '<div class="lb-who"><div class="lb-name">' + r.person + '</div>' +
+          '<div class="lb-meta">' + fmtMoney_(m.revenue) + ' revenue \u00b7 ' + Math.round(m.creatives).toLocaleString() +
+          ' creatives \u00b7 ' + fmtMoney_(m.fbSpend) + ' spend</div></div>' +
+          '<div class="lb-score"><strong>' + Math.round(m.score) + '</strong><span>bonus score</span></div></div>' +
+          '<div class="lb-bars">' + bars + '</div>' +
+          '<div class="lb-tip">' + leaderboardTip_(r) + '</div></div>';
       }).join('');
     }
 
@@ -2453,6 +2519,7 @@
         : 'Leads from ' + shortDay_(win.start) + ' to ' + shortDay_(win.end) +
           ' (42 to 14 days ago), so CPSet, CPD, Revenue and COM have had time to mature. Creatives = distinct ads with spend in the same range.';
 
+      if (!win.scored) scoreLeaderboard_(win);
       renderLeaderboardPodium(data, win);
       var rows = sortByMetric_(win.rows, LEADERBOARD_SORT);
       var html = '<thead><tr><th style="text-align:left;">#</th><th style="text-align:left;">Media Buyer</th>' +
