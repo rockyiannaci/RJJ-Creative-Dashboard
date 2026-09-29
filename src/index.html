@@ -437,6 +437,15 @@
         </div>
 
         <div class="detail-section">
+          <div class="section-title">Creative Performance Leaderboard</div>
+          <div class="week-tabs" id="leaderboardTabs"></div>
+          <p class="sub" id="leaderboardRangeLabel" style="margin: 0 0 12px;"></p>
+          <div class="card" style="overflow-x:auto;">
+            <table class="matrix-table" id="leaderboardTable"></table>
+          </div>
+        </div>
+
+        <div class="detail-section">
           <div class="section-title">This Week by Media Buyer</div>
           <div class="grid" id="personCards"></div>
         </div>
@@ -1739,8 +1748,8 @@
     // flips asc/desc if it's already the active key. Returns the <thead>
     // cells' HTML; bindSortableHeaders_ wires up the clicks afterward since
     // the cells are rendered as an innerHTML string.
-    function sortableHeaderCellsHtml_(sortState) {
-      return CREATIVE_METRIC_COLUMNS.map(function (col) {
+    function sortableHeaderCellsHtml_(sortState, columns) {
+      return (columns || CREATIVE_METRIC_COLUMNS).map(function (col) {
         var isActive = col.key === sortState.key;
         var arrow = isActive ? (sortState.dir === 'desc' ? ' ▼' : ' ▲') : '';
         var style = 'cursor:pointer; user-select:none;' + (isActive ? ' font-weight:800; color:var(--text);' : '');
@@ -2294,9 +2303,108 @@
         .getRecentlyLaunchedCreatives();
     }
 
+    // ---------- Overview leaderboard (Rocky vs Julian vs Jay) ----------
+    var LEADERBOARD_DATA = null;
+    var SELECTED_LEADERBOARD_WINDOW = 'since';
+    var LEADERBOARD_SORT = { key: 'revenue', dir: 'desc' };
+    var LEADERBOARD_KEY_METRICS = ['cpl', 'cpSet', 'cpd', 'com'];
+    var LEADERBOARD_COLUMNS = [
+      { key: 'briefs', label: 'Briefed', fmt: function (v) { return Math.round(v).toLocaleString(); } },
+      { key: 'cpl', label: 'CPL', fmt: fmtMoney_ },
+      { key: 'cpSet', label: 'CPSet', fmt: fmtMoney_ },
+      { key: 'cpd', label: 'CPD', fmt: fmtMoney_ },
+      { key: 'fbSpend', label: 'FB Spend', fmt: fmtMoney_ },
+      { key: 'revenue', label: 'Revenue', fmt: fmtMoney_ },
+      { key: 'com', label: 'COM', fmt: fmtPct_ }
+    ];
+
+    // "2026-08-18" -> "Aug 18"
+    function shortDay_(ymd) {
+      var p = ymd.split('-');
+      return new Date(Number(p[0]), Number(p[1]) - 1, Number(p[2]))
+        .toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    }
+
+    function renderLeaderboardTabs(data) {
+      var container = document.getElementById('leaderboardTabs');
+      container.innerHTML = '';
+      [
+        { key: 'since', label: 'Since June 2026' },
+        { key: 'matured', label: '42–14' }
+      ].forEach(function (opt) {
+        var btn = document.createElement('button');
+        btn.className = 'week-tab-btn' + (opt.key === SELECTED_LEADERBOARD_WINDOW ? ' active' : '');
+        btn.textContent = opt.label;
+        btn.onclick = function () {
+          SELECTED_LEADERBOARD_WINDOW = opt.key;
+          renderLeaderboardTabs(data);
+          renderLeaderboardTable(data);
+        };
+        container.appendChild(btn);
+      });
+    }
+
+    function renderLeaderboardTable(data) {
+      var win = data[SELECTED_LEADERBOARD_WINDOW];
+      var label = document.getElementById('leaderboardRangeLabel');
+      var table = document.getElementById('leaderboardTable');
+
+      if (!win) {
+        label.textContent = '';
+        table.innerHTML = '<tbody><tr><td style="color:var(--muted); text-align:center;">' +
+          'Not loaded yet. Run syncCreativePerformanceData once from the Apps Script editor.</td></tr></tbody>';
+        return;
+      }
+
+      label.textContent = SELECTED_LEADERBOARD_WINDOW === 'since'
+        ? 'Leads from ' + shortDay_(win.start) + ' to ' + shortDay_(win.end) + '. Briefed = briefs created in the same range.'
+        : 'Leads from ' + shortDay_(win.start) + ' to ' + shortDay_(win.end) +
+          ' (42 to 14 days ago), so CPSet, CPD, Revenue and COM have had time to mature. Briefed = briefs created in the same range.';
+
+      var rows = sortByMetric_(win.rows, LEADERBOARD_SORT);
+      var html = '<thead><tr><th style="text-align:left;">#</th><th style="text-align:left;">Media Buyer</th>' +
+        sortableHeaderCellsHtml_(LEADERBOARD_SORT, LEADERBOARD_COLUMNS) + '</tr></thead><tbody>';
+
+      rows.forEach(function (r, i) {
+        var color = colorFor(r.person, data.people);
+        html += '<tr><td style="text-align:left;">' + (i + 1) + '</td><td style="text-align:left; font-weight:600; white-space:nowrap;">' +
+          '<span class="buyer-dot" style="background:' + color + ';"></span>' + r.person + '</td>';
+        LEADERBOARD_COLUMNS.forEach(function (col) {
+          var isKey = LEADERBOARD_KEY_METRICS.indexOf(col.key) !== -1;
+          var isActive = col.key === LEADERBOARD_SORT.key;
+          var style = (isKey || isActive ? 'font-weight:700;' : '') + (isKey ? 'background:' + hexToRgba_(color, 0.12) + ';' : '');
+          html += '<td style="' + style + '">' + col.fmt(r.metrics[col.key]) + '</td>';
+        });
+        html += '</tr>';
+      });
+
+      html += '</tbody>';
+      table.innerHTML = html;
+      bindSortableHeaders_(table, LEADERBOARD_SORT, function () { renderLeaderboardTable(data); });
+    }
+
+    function renderLeaderboard(result) {
+      if (!result || !result.configured) {
+        document.getElementById('leaderboardTabs').innerHTML = '';
+        document.getElementById('leaderboardTable').innerHTML = '';
+        return;
+      }
+      LEADERBOARD_DATA = result;
+      renderLeaderboardTabs(result);
+      renderLeaderboardTable(result);
+    }
+
+    function loadLeaderboard() {
+      google.script.run
+        .withSuccessHandler(renderLeaderboard)
+        .withFailureHandler(function () { renderLeaderboard({ configured: false }); })
+        .getOverviewLeaderboard();
+    }
+
     loadDashboard();
     loadCreativePerformance();
     loadRecentLaunches();
+    loadLeaderboard();
   </script>
 </body>
 </html>

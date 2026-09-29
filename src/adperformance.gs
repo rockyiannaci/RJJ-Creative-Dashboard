@@ -390,7 +390,126 @@ function syncCreativePerformanceData() {
 
   PropertiesService.getScriptProperties().setProperty('LAST_CREATIVE_SYNC_AT', new Date().toISOString());
 
-  return { rowsSynced: rows.length };
+  // Runs after the main data is saved, so a failure here still leaves the
+  // month-level data fresh (and shows up as an error on the trigger).
+  var windowRows = syncCreativeWindowData_();
+
+  return { rowsSynced: rows.length, windowRowsSynced: windowRows };
+}
+
+var CREATIVE_WINDOW_SHEET_NAME = 'CreativeWindow';
+// Leads from 42 days ago through 14 days ago: old enough that the 14-day
+// lead-to-set and 42-day lead-to-sold cycles have mostly played out.
+var MATURED_WINDOW_START_DAYS_BACK = 42;
+var MATURED_WINDOW_END_DAYS_BACK = 14;
+
+function formatDayOffset_(daysBack) {
+  return Utilities.formatDate(
+    new Date(Date.now() - daysBack * 86400000),
+    Session.getScriptTimeZone(),
+    'yyyy-MM-dd'
+  );
+}
+
+/**
+ * Same shape as the main creative query, but one row per creative over a
+ * single rolling date range instead of per month — a 42-to-14-days-ago
+ * window can't be built from month buckets.
+ */
+function buildCreativeWindowQuery_(podConfig, startDate, endDate) {
+  var cfg = AD_PERFORMANCE_CONFIG;
+  var clientNames = Object.keys(podConfig.adPerformanceClientNameMap).map(function (key) {
+    return bqStringLiteral_(podConfig.adPerformanceClientNameMap[key]);
+  });
+
+  return [
+    'SELECT',
+    "  REGEXP_EXTRACT(ad_name, '" + CRTV_REGEX + "') AS crtv_code,",
+    "  TRIM(REGEXP_REPLACE(ad_name, '^[^A-Za-z0-9]+', '')) AS ad_name,",
+    '  ' + cfg.clientNameColumn + ' AS client_name,',
+    '  SUM(total_spend) AS total_spend,',
+    '  SUM(count_leads) AS count_leads,',
+    '  SUM(count_set) AS count_set,',
+    '  SUM(count_demo) AS count_demo,',
+    '  SUM(count_sold) AS count_sold,',
+    '  SUM(sum_revenue) AS sum_revenue',
+    'FROM `' + cfg.projectId + '.' + cfg.dataset + '.' + cfg.table + '`',
+    'WHERE ' + cfg.dateColumn + ' >= ' + bqStringLiteral_(startDate),
+    '  AND ' + cfg.dateColumn + ' <= ' + bqStringLiteral_(endDate),
+    '  AND ' + cfg.clientNameColumn + ' IN (' + clientNames.join(', ') + ')',
+    "  AND NOT REGEXP_CONTAINS(ad_name, '(?i)unassigned')",
+    'GROUP BY crtv_code, ad_name, client_name'
+  ].join('\n');
+}
+
+function syncCreativeWindowData_() {
+  var podConfig = getActivePodConfig();
+  var startDate = formatDayOffset_(MATURED_WINDOW_START_DAYS_BACK);
+  var endDate = formatDayOffset_(MATURED_WINDOW_END_DAYS_BACK);
+  var rawRows = runBigQueryQuery_(
+    AD_PERFORMANCE_CONFIG.projectId,
+    buildCreativeWindowQuery_(podConfig, startDate, endDate)
+  );
+
+  var rows = rawRows.map(function (r) {
+    return [
+      r.crtv_code || '',
+      r.ad_name || '',
+      r.client_name,
+      Number(r.total_spend || 0),
+      Number(r.count_leads || 0),
+      Number(r.count_set || 0),
+      Number(r.count_demo || 0),
+      Number(r.count_sold || 0),
+      Number(r.sum_revenue || 0)
+    ];
+  });
+
+  var sheet = getOrCreateSheetTab_(getOrCreateSpreadsheet_(), CREATIVE_WINDOW_SHEET_NAME, [
+    'crtv_code',
+    'ad_name',
+    'client_name',
+    'total_spend',
+    'count_leads',
+    'count_set',
+    'count_demo',
+    'count_sold',
+    'sum_revenue'
+  ]);
+  if (sheet.getMaxRows() > 1) {
+    sheet.getRange(2, 1, sheet.getMaxRows() - 1, sheet.getMaxColumns()).clearContent();
+  }
+  if (rows.length > 0) {
+    sheet.getRange(2, 1, rows.length, rows[0].length).setValues(rows);
+  }
+
+  PropertiesService.getScriptProperties().setProperties({
+    CREATIVE_WINDOW_START: startDate,
+    CREATIVE_WINDOW_END: endDate
+  });
+  return rows.length;
+}
+
+function readCreativeWindowRows_() {
+  var sheetId = PropertiesService.getScriptProperties().getProperty('SHEET_ID');
+  if (!sheetId) return [];
+
+  var sheet = SpreadsheetApp.openById(sheetId).getSheetByName(CREATIVE_WINDOW_SHEET_NAME);
+  if (!sheet || sheet.getLastRow() < 2) return [];
+
+  return sheet.getRange(2, 1, sheet.getLastRow() - 1, 9).getValues().map(function (r) {
+    return {
+      crtvCode: String(r[0] || '').trim().toUpperCase(),
+      adName: r[1],
+      clientName: r[2],
+      spend: r[3],
+      leads: r[4],
+      sets: r[5],
+      demos: r[6],
+      sold: r[7],
+      revenue: r[8]
+    };
+  });
 }
 
 function createCreativePerformanceHourlyTrigger_() {
@@ -749,5 +868,81 @@ function getRecentlyLaunchedCreatives() {
     accountDisplayNames: podConfig.accountDisplayNames || {},
     people: podConfig.people,
     byAccount: byAccount
+  };
+}
+
+/**
+ * Called by the Overview tab's media-buyer leaderboard. Two windows:
+ *  - "since": June 2026 through today, from the month-level creative sheet
+ *  - "matured": leads from 42 to 14 days ago, from the window sheet, so the
+ *    slow down-funnel metrics (CPSet, CPD, Revenue, COM) have had time to
+ *    play out. Null until the sync has run once with the window enabled.
+ * "Briefed" counts the pod's Asana briefs created inside the same window.
+ */
+function getOverviewLeaderboard() {
+  var props = PropertiesService.getScriptProperties();
+  if (!props.getProperty('LAST_CREATIVE_SYNC_AT') || !props.getProperty('LAST_SYNC_AT')) {
+    return { configured: false };
+  }
+
+  var podConfig = getActivePodConfig();
+  var briefRows = readDataRows_();
+  var reverseClientNameMap = buildReverseClientNameMap_(podConfig);
+
+  var briefByCode = {};
+  briefRows.forEach(function (b) {
+    var code = String(b.crtvCode || '').trim().toUpperCase();
+    if (code && !briefByCode[code]) briefByCode[code] = b;
+  });
+
+  function buildWindow(creativeRows, startDate, endDate) {
+    var rowsByPerson = {};
+    var briefsByPerson = {};
+    podConfig.people.forEach(function (p) {
+      rowsByPerson[p] = [];
+      briefsByPerson[p] = 0;
+    });
+
+    creativeRows.forEach(function (c) {
+      var attr = attributeCreativeRow_(c, briefByCode, reverseClientNameMap, podConfig);
+      if (attr && rowsByPerson[attr.person]) rowsByPerson[attr.person].push(c);
+    });
+    briefRows.forEach(function (b) {
+      if (briefsByPerson.hasOwnProperty(b.person) && b.day >= startDate && b.day <= endDate) {
+        briefsByPerson[b.person]++;
+      }
+    });
+
+    return {
+      start: startDate,
+      end: endDate,
+      rows: podConfig.people.map(function (person) {
+        var m = computeCreativeMetrics_(sumCreativeTotals_(rowsByPerson[person]));
+        return {
+          person: person,
+          metrics: {
+            briefs: briefsByPerson[person],
+            cpl: m.cpl,
+            cpSet: m.cpSet,
+            cpd: m.cpd,
+            fbSpend: m.fbSpend,
+            revenue: m.revenue,
+            com: m.com
+          }
+        };
+      })
+    };
+  }
+
+  var windowStart = props.getProperty('CREATIVE_WINDOW_START');
+  var windowEnd = props.getProperty('CREATIVE_WINDOW_END');
+
+  return {
+    configured: true,
+    people: podConfig.people,
+    since: buildWindow(readCreativePerformanceRows_(), CREATIVE_SYNC_START_DATE, formatDayOffset_(0)),
+    matured: windowStart && windowEnd
+      ? buildWindow(readCreativeWindowRows_(), windowStart, windowEnd)
+      : null
   };
 }
