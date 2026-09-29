@@ -272,6 +272,70 @@
     .matrix-table-compact .buyer-cell {
       width: 56px;
     }
+    .lb-hero {
+      background: linear-gradient(135deg, #171a3a 0%, #2b2f80 55%, #4f5bff 100%);
+      border-radius: 20px;
+      padding: 24px;
+      color: #fff;
+      box-shadow: 0 10px 30px rgba(79, 91, 255, 0.22);
+    }
+    .lb-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 16px;
+      flex-wrap: wrap;
+      margin-bottom: 18px;
+    }
+    .lb-title { font-size: 22px; font-weight: 800; letter-spacing: -0.02em; }
+    .lb-sub { margin: 6px 0 0; font-size: 13px; color: rgba(255,255,255,0.75); max-width: 640px; }
+    .lb-tabs { display: flex; gap: 8px; flex-wrap: wrap; }
+    .lb-tab {
+      border: 1px solid rgba(255,255,255,0.35);
+      background: rgba(255,255,255,0.10);
+      color: #fff;
+      padding: 8px 16px;
+      border-radius: 999px;
+      font-size: 13px;
+      font-weight: 700;
+      font-family: inherit;
+      cursor: pointer;
+    }
+    .lb-tab.active { background: #fff; color: #2b2f80; border-color: #fff; }
+    .lb-podium {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 14px;
+      margin-bottom: 18px;
+    }
+    @media (max-width: 900px) { .lb-podium { grid-template-columns: 1fr; } }
+    .lb-card {
+      background: rgba(255,255,255,0.09);
+      border: 1px solid rgba(255,255,255,0.18);
+      border-top: 4px solid #fff;
+      border-radius: 16px;
+      padding: 16px 18px;
+    }
+    .lb-card.lb-first {
+      background: rgba(255,255,255,0.18);
+      border-color: rgba(255,255,255,0.4);
+      box-shadow: 0 6px 24px rgba(0,0,0,0.25);
+    }
+    .lb-rank { font-size: 12px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: rgba(255,255,255,0.7); }
+    .lb-first .lb-rank { color: #ffd166; }
+    .lb-name { font-size: 16px; font-weight: 700; margin-top: 4px; }
+    .lb-revenue { font-size: 32px; font-weight: 800; letter-spacing: -0.02em; margin-top: 8px; line-height: 1.1; }
+    .lb-revenue-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: rgba(255,255,255,0.65); margin-bottom: 12px; }
+    .lb-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px 8px; }
+    .lb-stat span { display: block; font-size: 10px; text-transform: uppercase; letter-spacing: 0.05em; color: rgba(255,255,255,0.65); }
+    .lb-stat strong { font-size: 15px; font-weight: 700; }
+    .lb-table-card {
+      background: var(--card);
+      color: var(--text);
+      border-radius: 14px;
+      padding: 8px 12px;
+      overflow-x: auto;
+    }
     .buyer-dot {
       display: inline-block;
       width: 10px;
@@ -431,7 +495,21 @@
       <div class="nav-tabs" id="navTabs"></div>
 
       <div class="page-section" id="page-overview">
-        <div class="detail-section" style="margin-top: 0;">
+        <div class="lb-hero">
+          <div class="lb-head">
+            <div>
+              <div class="lb-title">Creative Performance Leaderboard</div>
+              <p class="lb-sub" id="leaderboardRangeLabel"></p>
+            </div>
+            <div class="lb-tabs" id="leaderboardTabs"></div>
+          </div>
+          <div class="lb-podium" id="leaderboardPodium"></div>
+          <div class="lb-table-card">
+            <table class="matrix-table" id="leaderboardTable"></table>
+          </div>
+        </div>
+
+        <div class="detail-section">
           <div class="section-title">Monthly Target Progress <span id="targetMonthLabel" style="font-weight: 400; color: var(--muted); font-size: 14px;"></span></div>
           <div class="grid" id="overviewTargetCards" style="grid-template-columns: repeat(3, 1fr);"></div>
         </div>
@@ -439,15 +517,6 @@
         <div class="detail-section">
           <div class="section-title">This Week by Media Buyer</div>
           <div class="grid" id="personCards"></div>
-        </div>
-
-        <div class="detail-section">
-          <div class="section-title">Creative Performance Leaderboard</div>
-          <div class="week-tabs" id="leaderboardTabs"></div>
-          <p class="sub" id="leaderboardRangeLabel" style="margin: 0 0 12px;"></p>
-          <div class="card" style="overflow-x:auto;">
-            <table class="matrix-table" id="leaderboardTable"></table>
-          </div>
         </div>
 
         <div class="chart-row">
@@ -2305,7 +2374,7 @@
 
     // ---------- Overview leaderboard (Rocky vs Julian vs Jay) ----------
     var LEADERBOARD_DATA = null;
-    var SELECTED_LEADERBOARD_WINDOW = 'since';
+    var SELECTED_LEADERBOARD_WINDOW = 'matured';
     var LEADERBOARD_SORT = { key: 'revenue', dir: 'desc' };
     var LEADERBOARD_KEY_METRICS = ['cpl', 'cpSet', 'cpd', 'com'];
     var LEADERBOARD_COLUMNS = [
@@ -2329,11 +2398,11 @@
       var container = document.getElementById('leaderboardTabs');
       container.innerHTML = '';
       [
-        { key: 'since', label: 'Since June 2026' },
-        { key: 'matured', label: '42–14' }
+        { key: 'matured', label: '42–14' },
+        { key: 'since', label: 'Since June 2026' }
       ].forEach(function (opt) {
         var btn = document.createElement('button');
-        btn.className = 'week-tab-btn' + (opt.key === SELECTED_LEADERBOARD_WINDOW ? ' active' : '');
+        btn.className = 'lb-tab' + (opt.key === SELECTED_LEADERBOARD_WINDOW ? ' active' : '');
         btn.textContent = opt.label;
         btn.onclick = function () {
           SELECTED_LEADERBOARD_WINDOW = opt.key;
@@ -2344,6 +2413,28 @@
       });
     }
 
+    function renderLeaderboardPodium(data, win) {
+      var el = document.getElementById('leaderboardPodium');
+      var ordinals = ['1st', '2nd', '3rd'];
+      var ranked = win.rows.slice().sort(function (a, b) { return b.metrics.revenue - a.metrics.revenue; });
+      el.innerHTML = ranked.map(function (r, i) {
+        var color = colorFor(r.person, data.people);
+        var m = r.metrics;
+        function stat(label, value) {
+          return '<div class="lb-stat"><span>' + label + '</span><strong>' + value + '</strong></div>';
+        }
+        return '<div class="lb-card' + (i === 0 ? ' lb-first' : '') + '" style="border-top-color:' + color + ';">' +
+          '<div class="lb-rank">' + (ordinals[i] || (i + 1) + 'th') + ' by revenue</div>' +
+          '<div class="lb-name"><span class="buyer-dot" style="background:' + color + ';"></span>' + r.person + '</div>' +
+          '<div class="lb-revenue">' + fmtMoney_(m.revenue) + '</div><div class="lb-revenue-label">Revenue</div>' +
+          '<div class="lb-stats">' +
+            stat('Creatives', Math.round(m.creatives).toLocaleString()) + stat('CPL', fmtMoney_(m.cpl)) +
+            stat('CPSet', fmtMoney_(m.cpSet)) + stat('CPD', fmtMoney_(m.cpd)) +
+            stat('COM', fmtPct_(m.com)) + stat('Spend', fmtMoney_(m.fbSpend)) +
+          '</div></div>';
+      }).join('');
+    }
+
     function renderLeaderboardTable(data) {
       var win = data[SELECTED_LEADERBOARD_WINDOW];
       var label = document.getElementById('leaderboardRangeLabel');
@@ -2351,6 +2442,7 @@
 
       if (!win) {
         label.textContent = '';
+        document.getElementById('leaderboardPodium').innerHTML = '';
         table.innerHTML = '<tbody><tr><td style="color:var(--muted); text-align:center;">' +
           'Not loaded yet. Run syncCreativePerformanceData once from the Apps Script editor.</td></tr></tbody>';
         return;
@@ -2361,6 +2453,7 @@
         : 'Leads from ' + shortDay_(win.start) + ' to ' + shortDay_(win.end) +
           ' (42 to 14 days ago), so CPSet, CPD, Revenue and COM have had time to mature. Creatives = distinct ads with spend in the same range.';
 
+      renderLeaderboardPodium(data, win);
       var rows = sortByMetric_(win.rows, LEADERBOARD_SORT);
       var html = '<thead><tr><th style="text-align:left;">#</th><th style="text-align:left;">Media Buyer</th>' +
         sortableHeaderCellsHtml_(LEADERBOARD_SORT, LEADERBOARD_COLUMNS) + '</tr></thead><tbody>';
@@ -2386,12 +2479,14 @@
     function renderLeaderboard(result) {
       if (!result || !result.configured) {
         document.getElementById('leaderboardTabs').innerHTML = '';
+        document.getElementById('leaderboardPodium').innerHTML = '';
         document.getElementById('leaderboardTable').innerHTML = '';
         document.getElementById('leaderboardRangeLabel').textContent =
           'Not available yet. Run syncAsanaData and syncCreativePerformanceData once from the Apps Script editor.';
         return;
       }
       LEADERBOARD_DATA = result;
+      if (!result.matured) SELECTED_LEADERBOARD_WINDOW = 'since';
       renderLeaderboardTabs(result);
       renderLeaderboardTable(result);
     }
