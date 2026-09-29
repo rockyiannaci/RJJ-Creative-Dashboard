@@ -877,7 +877,7 @@ function getRecentlyLaunchedCreatives() {
  *  - "matured": leads from 42 to 14 days ago, from the window sheet, so the
  *    slow down-funnel metrics (CPSet, CPD, Revenue, COM) have had time to
  *    play out. Null until the sync has run once with the window enabled.
- * "Briefed" counts the pod's Asana briefs created inside the same window.
+ * "Creatives" counts the distinct ads that spent inside the same window.
  */
 function getOverviewLeaderboard() {
   var props = PropertiesService.getScriptProperties();
@@ -897,20 +897,19 @@ function getOverviewLeaderboard() {
 
   function buildWindow(creativeRows, startDate, endDate) {
     var rowsByPerson = {};
-    var briefsByPerson = {};
+    var creativeKeysByPerson = {};
     podConfig.people.forEach(function (p) {
       rowsByPerson[p] = [];
-      briefsByPerson[p] = 0;
+      creativeKeysByPerson[p] = {};
     });
 
+    // "Creatives" = distinct ads (by cleaned ad name, per account) that
+    // actually spent in the window, matching how the Top 25 table counts.
     creativeRows.forEach(function (c) {
       var attr = attributeCreativeRow_(c, briefByCode, reverseClientNameMap, podConfig);
-      if (attr && rowsByPerson[attr.person]) rowsByPerson[attr.person].push(c);
-    });
-    briefRows.forEach(function (b) {
-      if (briefsByPerson.hasOwnProperty(b.person) && b.day >= startDate && b.day <= endDate) {
-        briefsByPerson[b.person]++;
-      }
+      if (!attr || !rowsByPerson[attr.person]) return;
+      rowsByPerson[attr.person].push(c);
+      if (c.spend > 0) creativeKeysByPerson[attr.person][c.adName + '::' + attr.account] = true;
     });
 
     return {
@@ -921,7 +920,7 @@ function getOverviewLeaderboard() {
         return {
           person: person,
           metrics: {
-            briefs: briefsByPerson[person],
+            creatives: Object.keys(creativeKeysByPerson[person]).length,
             cpl: m.cpl,
             cpSet: m.cpSet,
             cpd: m.cpd,

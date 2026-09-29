@@ -2309,7 +2309,7 @@
     var LEADERBOARD_SORT = { key: 'revenue', dir: 'desc' };
     var LEADERBOARD_KEY_METRICS = ['cpl', 'cpSet', 'cpd', 'com'];
     var LEADERBOARD_COLUMNS = [
-      { key: 'briefs', label: 'Briefed', fmt: function (v) { return Math.round(v).toLocaleString(); } },
+      { key: 'creatives', label: 'Creatives', fmt: function (v) { return Math.round(v).toLocaleString(); } },
       { key: 'cpl', label: 'CPL', fmt: fmtMoney_ },
       { key: 'cpSet', label: 'CPSet', fmt: fmtMoney_ },
       { key: 'cpd', label: 'CPD', fmt: fmtMoney_ },
@@ -2357,9 +2357,9 @@
       }
 
       label.textContent = SELECTED_LEADERBOARD_WINDOW === 'since'
-        ? 'Leads from ' + shortDay_(win.start) + ' to ' + shortDay_(win.end) + '. Briefed = briefs created in the same range.'
+        ? 'Leads from ' + shortDay_(win.start) + ' to ' + shortDay_(win.end) + '. Creatives = distinct ads with spend in the same range.'
         : 'Leads from ' + shortDay_(win.start) + ' to ' + shortDay_(win.end) +
-          ' (42 to 14 days ago), so CPSet, CPD, Revenue and COM have had time to mature. Briefed = briefs created in the same range.';
+          ' (42 to 14 days ago), so CPSet, CPD, Revenue and COM have had time to mature. Creatives = distinct ads with spend in the same range.';
 
       var rows = sortByMetric_(win.rows, LEADERBOARD_SORT);
       var html = '<thead><tr><th style="text-align:left;">#</th><th style="text-align:left;">Media Buyer</th>' +
