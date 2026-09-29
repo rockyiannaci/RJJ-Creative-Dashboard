@@ -437,17 +437,17 @@
         </div>
 
         <div class="detail-section">
+          <div class="section-title">This Week by Media Buyer</div>
+          <div class="grid" id="personCards"></div>
+        </div>
+
+        <div class="detail-section">
           <div class="section-title">Creative Performance Leaderboard</div>
           <div class="week-tabs" id="leaderboardTabs"></div>
           <p class="sub" id="leaderboardRangeLabel" style="margin: 0 0 12px;"></p>
           <div class="card" style="overflow-x:auto;">
             <table class="matrix-table" id="leaderboardTable"></table>
           </div>
-        </div>
-
-        <div class="detail-section">
-          <div class="section-title">This Week by Media Buyer</div>
-          <div class="grid" id="personCards"></div>
         </div>
 
         <div class="chart-row">
@@ -2387,6 +2387,8 @@
       if (!result || !result.configured) {
         document.getElementById('leaderboardTabs').innerHTML = '';
         document.getElementById('leaderboardTable').innerHTML = '';
+        document.getElementById('leaderboardRangeLabel').textContent =
+          'Not available yet. Run syncAsanaData and syncCreativePerformanceData once from the Apps Script editor.';
         return;
       }
       LEADERBOARD_DATA = result;
@@ -2397,7 +2399,11 @@
     function loadLeaderboard() {
       google.script.run
         .withSuccessHandler(renderLeaderboard)
-        .withFailureHandler(function () { renderLeaderboard({ configured: false }); })
+        .withFailureHandler(function (err) {
+          renderLeaderboard({ configured: false });
+          document.getElementById('leaderboardRangeLabel').textContent =
+            'Error loading leaderboard: ' + (err && err.message ? err.message : err);
+        })
         .getOverviewLeaderboard();
     }
 
