@@ -532,6 +532,9 @@
             <table class="matrix-table" id="leaderboardTable"></table>
           </div>
           <div id="leaderboardDetail"></div>
+        </div>
+
+        <div class="lb-hero" style="margin-top:16px;">
           <div id="bonusTracker" class="bt-big"></div>
         </div>
 
@@ -2577,8 +2580,8 @@
         ? bonusCardHtml_(data, win, 'All Accounts', 'var(--text)', function (a) { return win.accountTotals[a]; }, '', true)
         : '';
 
-      overview.innerHTML = '<div class="lb-detail-title">Bonus Target Tracker</div>' +
-        '<p class="lb-sub" style="margin:0 0 10px;">Green = target hit \u00b7 Yellow = within 5% of target \u00b7 tier shown under each value. <a href="#" id="bonusOpenTab">By media buyer \u2192</a></p>' + allCard;
+      overview.innerHTML = '<div class="lb-title">Bonus Target Tracker</div>' +
+        '<p class="lb-sub" style="margin:6px 0 14px;">Green = target hit \u00b7 Yellow = within 5% of target \u00b7 tier shown under each value. <a href="#" id="bonusOpenTab">By media buyer \u2192</a></p>' + allCard;
       var link = document.getElementById('bonusOpenTab');
       if (link) link.onclick = function (e) { e.preventDefault(); navigateToSection('bonus'); };
 
