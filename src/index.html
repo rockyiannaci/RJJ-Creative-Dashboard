@@ -2629,6 +2629,13 @@
           '<td>' + Math.round(((win.weights || {})[account] || 0) * 100) + '%</td>';
         cols.forEach(function (col) {
           if (idle) { html += '<td>\u2014</td>'; return; }
+          if (col.key === 'targetsHit') {
+            // Bonus targets hit on this account, out of its three (CPL / CPSet / COM).
+            if (!(data.bonusTargets || {})[account]) { html += '<td>\u2014</td>'; return; }
+            var accountHits = BONUS_METRICS.filter(function (bm) { return bonusStatus_(data, account, bm.key, m).hit; }).length;
+            html += '<td style="font-weight:600;">' + accountHits + ' / ' + BONUS_METRICS.length + '</td>';
+            return;
+          }
           var isKey = LEADERBOARD_KEY_METRICS.indexOf(col.key) !== -1;
           var st = bonusStatus_(data, account, col.key, m);
           if (st.live && st.hit) { html += '<td class="bt-hit">\u2713 ' + col.fmt(m[col.key]) + '<span class="bt-tgt">' + bonusTargetText_({ fmt: col.fmt }, st.target) + '</span></td>'; return; }
