@@ -2351,6 +2351,9 @@
     // credit on the Overview: share^0.35, so a small footprint is discounted but
     // not wiped out (1 = fully proportional, 0 = ignore footprint).
     var LEADERBOARD_FOOTPRINT_EXPONENT = 0.35;
+    // Final scores are scaled so the current leader lands in the low 90s, leaving
+    // visible room to improve (the leader is 100 before scaling).
+    var LEADERBOARD_SCORE_SCALE = 0.94;
     var LEADERBOARD_TARGET_TOTAL = 15;
     var LEADERBOARD_COLUMNS = [
       { key: 'score', label: 'Score', fmt: function (v) { return Math.round(v).toString(); } },
@@ -2406,7 +2409,7 @@
       var target = worst === 'com'
         ? (Math.floor(b.target * 1000) / 10).toFixed(1) + '%'
         : '$' + Math.floor(b.target).toLocaleString();
-      return '<strong>' + labels[worst] + ' \u2264 ' + target + '</strong> = +' + Math.max(1, Math.round(b.gain * (1 - (r.blendWeight || 0)))) + ' pts';
+      return '<strong>' + labels[worst] + ' \u2264 ' + target + '</strong> = +' + Math.max(1, Math.round(b.gain * (1 - (r.blendWeight || 0)) * LEADERBOARD_SCORE_SCALE)) + ' pts';
     }
 
     // Gold / silver / bronze medal with a ribbon, drawn inline so it needs no
@@ -2652,7 +2655,7 @@
         r.metrics.bonusIdx = bonusIdx;
         r.metrics.targetsHit = stats[i].hits;
         if (stats[i].total) LEADERBOARD_TARGET_TOTAL = stats[i].total;
-        r.metrics.score = (1 - w) * r.metrics.effScore + w * bonusIdx;
+        r.metrics.score = LEADERBOARD_SCORE_SCALE * ((1 - w) * r.metrics.effScore + w * bonusIdx);
         r.blendWeight = w;
       });
     }
