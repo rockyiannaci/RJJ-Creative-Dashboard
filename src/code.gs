@@ -140,7 +140,7 @@ function weeksBetweenInclusive_(startWeekKey, endWeekKey) {
  * Per-account average pace (briefs / month, briefs / week), based on the
  * full history rather than any trailing window or filter — a stable
  * benchmark for "how much should we be briefing" regardless of which
- * period is selected in the Performance Comparison tab.
+ * period is selected in the Volume Comparison tab.
  */
 function computeAccountBenchmarks_(rows, podConfig) {
   var benchmarks = {};

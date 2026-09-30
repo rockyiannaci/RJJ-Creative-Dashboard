@@ -55,12 +55,12 @@ var POD_CONFIGS = {
       'Net New Concept': '#ff9800'
     },
     // Floor for the "Avg / Month" and "Avg / Week" benchmarks on the
-    // Performance Comparison tab: never average in data from before this
+    // Volume Comparison tab: never average in data from before this
     // month, even though Asana history goes back further.
     benchmarkStartMonth: '2026-07',
     // Minimum creative briefs to submit per account, per calendar month.
     // Drives the Monthly Target Progress section on Overview and the
-    // Performance Comparison tab.
+    // Volume Comparison tab.
     monthlyAccountTargets: {
       'Refloor': 60,
       'Leaf Home Enhancements': 20,
