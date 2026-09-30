@@ -325,7 +325,8 @@
     .lb-score { text-align: right; flex: 0 0 auto; }
     .lb-score strong { display: block; font-size: 34px; line-height: 1; font-weight: 800; color: var(--c); }
     .lb-score span { font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); }
-    .lb-tip { font-size: 12px; color: var(--muted); margin-top: 2px; }
+    .lb-tip { font-size: 12px; color: var(--muted); margin-top: 3px; line-height: 1.45; }
+    .lb-tip strong { color: var(--text); font-weight: 600; }
     .lb-table-card { overflow-x: auto; border-top: 1px solid var(--border); padding-top: 8px; }
     .buyer-dot {
       display: inline-block;
@@ -2239,6 +2240,7 @@
           btn.disabled = false;
           btn.textContent = 'Refresh';
           loadDashboard();
+          loadLeaderboard();
         })
         .withFailureHandler(function (err) {
           btn.disabled = false;
@@ -2431,22 +2433,48 @@
       win.scored = true;
     }
 
-    // Matching the pod's best value on the metric that costs the most points
-    // wins back all of those points, so the target is that best value
-    // (rounded down so hitting the number really does match or beat it).
-    function leaderboardTip_(r) {
+    // Up to the two metrics where the most bonus points are on the table, each
+    // with the exact number to hit (the pod's best, rounded down so hitting it
+    // really matches or beats it), then what hitting both would do to the
+    // rankings. Recomputed from the latest synced data on every load, so the
+    // targets move as the 42-14 window rolls forward and the pod's numbers move.
+    function leaderboardTip_(r, ranked, idx) {
       var labels = { cpl: 'CPL', cpSet: 'CPSet', com: 'COM' };
-      var worst = null;
-      Object.keys(r.bonus).forEach(function (k) {
-        if (!worst || r.bonus[k].lost > r.bonus[worst].lost) worst = k;
-      });
-      var b = r.bonus[worst];
-      if (b.lost < 0.5) return 'Leading on all three';
-      if (b.value <= 0) return 'No ' + labels[worst] + ' data yet';
-      var target = worst === 'com'
-        ? (Math.floor(b.best * 1000) / 10).toFixed(1) + '%'
-        : '$' + Math.floor(b.best).toLocaleString();
-      return labels[worst] + ' to ' + target + ' = +' + Math.round(b.lost) + ' pts';
+      var first = function (rowObj) { return rowObj.person.split(' ')[0]; };
+      var fmtTarget = function (k, best) {
+        return k === 'com' ? (Math.floor(best * 1000) / 10).toFixed(1) + '%' : '$' + Math.floor(best).toLocaleString();
+      };
+      var keys = Object.keys(r.bonus);
+      var opps = keys.filter(function (k) { return r.bonus[k].value > 0 && r.bonus[k].lost >= 0.5; })
+        .sort(function (a, b) { return r.bonus[b].lost - r.bonus[a].lost; }).slice(0, 2);
+
+      if (!opps.length) {
+        var missing = keys.filter(function (k) { return r.bonus[k].value <= 0; })[0];
+        if (missing) return '<strong>No ' + labels[missing] + ' data yet</strong>';
+        var lead = idx === 0 && ranked[1] ? 'Leads ' + first(ranked[1]) + ' by ' +
+          Math.round(r.metrics.score - ranked[1].metrics.score) + ' pts' : '';
+        return '<strong>Leading on all three</strong>' + (lead ? '<br><span>' + lead + '</span>' : '');
+      }
+
+      var targets = opps.map(function (k) {
+        return labels[k] + ' \u2264 ' + fmtTarget(k, r.bonus[k].best) + ' (+' + Math.round(r.bonus[k].lost) + ')';
+      }).join(' \u00b7 ');
+      var gain = opps.reduce(function (sum, k) { return sum + r.bonus[k].lost; }, 0);
+      var projected = r.metrics.score + gain;
+
+      var chase;
+      if (idx === 0) {
+        chase = ranked[1] ? 'Leads ' + first(ranked[1]) + ' by ' + Math.round(r.metrics.score - ranked[1].metrics.score) + ' pts' : '';
+      } else {
+        // Highest place the projected score would reach, assuming the others hold still.
+        var reach = idx;
+        while (reach > 0 && projected > ranked[reach - 1].metrics.score) reach--;
+        var above = ranked[idx - 1];
+        chase = reach < idx
+          ? 'Hit both and you take #' + (reach + 1) + ' from ' + first(ranked[reach])
+          : 'Hit both: ~' + Math.round(projected) + ', still ' + Math.round(above.metrics.score - projected) + ' behind ' + first(above);
+      }
+      return '<strong>' + targets + '</strong>' + (chase ? '<br><span>' + chase + '</span>' : '');
     }
 
     // Gold / silver / bronze medal with a ribbon, drawn inline so it needs no
@@ -2482,7 +2510,7 @@
           (i === 0 ? 'background:' + hexToRgba_(color, 0.05) + ';' : '') + '">' +
           '<div class="lb-top">' + medalSvg_(i + 1) +
           '<div class="lb-who"><div class="lb-name">' + r.person + '</div>' +
-          '<div class="lb-tip">' + leaderboardTip_(r) + '</div></div>' +
+          '<div class="lb-tip">' + leaderboardTip_(r, ranked, i) + '</div></div>' +
           '<div class="lb-score"><strong>' + Math.round(r.metrics.score) + '</strong><span>score</span></div></div></div>';
       }).join('');
     }
