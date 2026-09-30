@@ -341,7 +341,8 @@
     .bt-card th:first-child, .bt-card td:first-child { text-align: left; }
     .bt-tgt { display: block; font-size: 10px; color: var(--muted); font-weight: 400; }
     .bt-table td { vertical-align: middle; }
-    .bt-hit { background: rgba(34, 197, 94, 0.18); color: #15803d; font-weight: 700; }
+    .bt-hit { background: #16a34a; color: #fff; font-weight: 700; }
+    .bt-hit .bt-tgt { color: rgba(255,255,255,0.85); }
     .bt-miss { color: var(--text); }
     .lb-hint { margin: 12px 0 0; font-size: 12px; color: var(--muted); text-align: center; }
     .lb-detail-title { margin: 18px 0 6px; font-size: 15px; font-weight: 700; color: var(--text); }
@@ -2567,8 +2568,8 @@
           if (idle) { html += '<td>\u2014</td>'; return; }
           var isKey = LEADERBOARD_KEY_METRICS.indexOf(col.key) !== -1;
           var st = bonusStatus_(data, account, col.key, m);
-          if (st.live && st.hit) { html += '<td class="bt-hit">\u2713 ' + col.fmt(m[col.key]) + '</td>'; return; }
-          html += '<td style="' + (isKey ? 'font-weight:700; background:' + hexToRgba_(color, 0.12) + ';' : '') + '">' + col.fmt(m[col.key]) +
+          if (st.live && st.hit) { html += '<td class="bt-hit">\u2713 ' + col.fmt(m[col.key]) + '<span class="bt-tgt">' + bonusTargetText_({ fmt: col.fmt }, st.target) + '</span></td>'; return; }
+          html += '<td style="' + (isKey && !st.live ? 'font-weight:700; background:' + hexToRgba_(color, 0.12) + ';' : '') + '">' + col.fmt(m[col.key]) +
             (st.live ? '<span class="bt-tgt">' + bonusTargetText_({ fmt: col.fmt }, st.target) + '</span>' : '') + '</td>';
         });
         html += '</tr>';
