@@ -340,7 +340,7 @@
     .bt-card th { font-weight: 600; color: var(--muted); text-transform: uppercase; font-size: 10px; padding: 2px 4px; text-align: center; }
     .bt-card td { padding: 4px 6px; text-align: center; border-radius: 6px; background: var(--bg); line-height: 1.25; }
     .bt-card th:first-child, .bt-card td:first-child { text-align: left; width: 22%; background: none; padding-left: 2px; }
-    .bt-tgt { display: block; font-size: 10px; color: var(--muted); font-weight: 400; }
+    .bt-tgt { display: block; font-size: 10px; color: var(--muted); font-weight: 600; }
     .bt-table td { vertical-align: middle; }
     .bt-near { background: rgba(250, 204, 21, 0.28); color: var(--text); font-weight: 700; }
     .bt-hit { background: rgba(34, 197, 94, 0.24); color: var(--text); font-weight: 700; }
@@ -2405,7 +2405,7 @@
     var LEADERBOARD_SORT = { key: 'score', dir: 'desc' };
     var SELECTED_LEADERBOARD_BUYER = null;
     var LEADERBOARD_BONUS_WEIGHTS = { cpl: 0.35, cpSet: 0.45, com: 0.20 };
-    var LEADERBOARD_KEY_METRICS = ['cpl', 'cpSet', 'cpd', 'com'];
+    var LEADERBOARD_KEY_METRICS = ['cpl', 'cpSet', 'com'];
     var LEADERBOARD_COLUMNS = [
       { key: 'score', label: 'Bonus Score', fmt: function (v) { return Math.round(v).toString(); } },
       { key: 'creatives', label: 'Creatives', fmt: function (v) { return Math.round(v).toLocaleString(); } },
@@ -2588,7 +2588,7 @@
           var isKey = LEADERBOARD_KEY_METRICS.indexOf(col.key) !== -1;
           var st = bonusStatus_(data, account, col.key, m);
           if (st.live && st.hit) { html += '<td class="bt-hit">\u2713 ' + col.fmt(m[col.key]) + '<span class="bt-tgt">' + bonusTargetText_({ fmt: col.fmt }, st.target) + '</span></td>'; return; }
-          html += '<td' + (st.near ? ' class="bt-near"' : '') + ' style="' + (isKey && !st.live ? 'font-weight:700;' : '') + '">' + col.fmt(m[col.key]) +
+          html += '<td' + (st.near ? ' class="bt-near"' : '') + ' style="' + (isKey ? 'font-weight:700;' : '') + '">' + col.fmt(m[col.key]) +
             (st.live ? '<span class="bt-tgt">' + bonusTargetText_({ fmt: col.fmt }, st.target) + '</span>' : '') + '</td>';
         });
         html += '</tr>';
