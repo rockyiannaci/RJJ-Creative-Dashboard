@@ -290,6 +290,7 @@
     }
     .lb-title { font-size: 17px; font-weight: 700; letter-spacing: -0.01em; color: var(--text); }
     .lb-sub { margin: 6px 0 0; font-size: 13px; color: var(--muted); max-width: 640px; }
+    .lb-mix { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 4px 0 12px; font-size: 12px; color: var(--muted); }
     .lb-tabs { display: flex; gap: 8px; flex-wrap: wrap; }
     .lb-tab {
       border: 1px solid var(--border);
@@ -518,6 +519,7 @@
             </div>
             <div class="lb-tabs" id="leaderboardTabs"></div>
           </div>
+          <div class="lb-mix" id="leaderboardBlend"></div>
           <div class="lb-podium" id="leaderboardPodium"></div>
           <div class="lb-table-card">
             <table class="matrix-table" id="leaderboardTable"></table>
@@ -2344,8 +2346,13 @@
     var SELECTED_LEADERBOARD_BUYER = null;
     var LEADERBOARD_BONUS_WEIGHTS = { cpl: 0.35, cpSet: 0.45, com: 0.20 };
     var LEADERBOARD_KEY_METRICS = ['cpl', 'cpSet', 'com'];
+    // Share of the Overview score that comes from bonus targets hit (the rest
+    // is the CPL/CPSet/COM efficiency score). 0 = efficiency only.
+    var LEADERBOARD_BONUS_BLEND = 0.3;
+    var LEADERBOARD_TARGET_TOTAL = 15;
     var LEADERBOARD_COLUMNS = [
-      { key: 'score', label: 'Bonus Score', fmt: function (v) { return Math.round(v).toString(); } },
+      { key: 'score', label: 'Score', fmt: function (v) { return Math.round(v).toString(); } },
+      { key: 'targetsHit', label: 'Targets', fmt: function (v) { return Math.round(v) + ' / ' + LEADERBOARD_TARGET_TOTAL; } },
       { key: 'creatives', label: 'Creatives', fmt: function (v) { return Math.round(v).toLocaleString(); } },
       { key: 'cpl', label: 'CPL', fmt: fmtMoney_ },
       { key: 'cpSet', label: 'CPSet', fmt: fmtMoney_ },
@@ -2397,7 +2404,7 @@
       var target = worst === 'com'
         ? (Math.floor(b.target * 1000) / 10).toFixed(1) + '%'
         : '$' + Math.floor(b.target).toLocaleString();
-      return '<strong>' + labels[worst] + ' \u2264 ' + target + '</strong> = +' + Math.round(b.gain) + ' pts';
+      return '<strong>' + labels[worst] + ' \u2264 ' + target + '</strong> = +' + Math.max(1, Math.round(b.gain * (1 - (r.blendWeight || 0)))) + ' pts';
     }
 
     // Gold / silver / bronze medal with a ribbon, drawn inline so it needs no
@@ -2626,6 +2633,41 @@
       el.innerHTML = html + '</tbody></table></div>';
     }
 
+    // Mixes the efficiency score (server-side: best-in-pod CPL 35 / CPSet 45 /
+    // COM 20) with a bonus score: the share of the bonus pool each buyer is
+    // earning (metric weights 35/45/20, accounts by spend, scaled by the buyer's
+    // share of the account), relative to the best buyer.
+    function applyLeaderboardBlend_(data, win) {
+      var hasTargets = data.bonusTargets && Object.keys(data.bonusTargets).length;
+      var w = hasTargets ? LEADERBOARD_BONUS_BLEND : 0;
+      var stats = win.rows.map(function (r) {
+        return bonusStats_(data, win, function (a) { return r.byAccount[a]; }, true);
+      });
+      var best = Math.max.apply(null, stats.map(function (s) { return s.score; }).concat([0]));
+      win.rows.forEach(function (r, i) {
+        if (r.metrics.effScore === undefined) r.metrics.effScore = r.metrics.score;
+        var bonusIdx = best > 0 ? (stats[i].score / best) * 100 : 0;
+        r.metrics.bonusIdx = bonusIdx;
+        r.metrics.targetsHit = stats[i].hits;
+        if (stats[i].total) LEADERBOARD_TARGET_TOTAL = stats[i].total;
+        r.metrics.score = (1 - w) * r.metrics.effScore + w * bonusIdx;
+        r.blendWeight = w;
+      });
+    }
+
+    function renderLeaderboardBlend_(data) {
+      var el = document.getElementById('leaderboardBlend');
+      if (!data.bonusTargets || !Object.keys(data.bonusTargets).length) { el.innerHTML = ''; return; }
+      el.innerHTML = '<span>Score mix (efficiency / bonus targets):</span>';
+      [{ w: 0, label: 'Efficiency only' }, { w: 0.2, label: '80 / 20' }, { w: 0.3, label: '70 / 30' }].forEach(function (opt) {
+        var btn = document.createElement('button');
+        btn.className = 'lb-tab' + (opt.w === LEADERBOARD_BONUS_BLEND ? ' active' : '');
+        btn.textContent = opt.label;
+        btn.onclick = function () { LEADERBOARD_BONUS_BLEND = opt.w; renderLeaderboardTable(data); };
+        el.appendChild(btn);
+      });
+    }
+
     function renderLeaderboardTable(data) {
       var win = data[SELECTED_LEADERBOARD_WINDOW];
       var label = document.getElementById('leaderboardRangeLabel');
@@ -2639,9 +2681,13 @@
         return;
       }
 
+      applyLeaderboardBlend_(data, win);
+      renderLeaderboardBlend_(data);
       label.textContent = shortDay_(win.start) + ' \u2013 ' + shortDay_(win.end) +
         (SELECTED_LEADERBOARD_WINDOW === 'matured' ? ' (42\u201314 days ago)' : '') +
-        ' \u00b7 Score = CPL 35% + CPSet 45% + COM 20%';
+        ' \u00b7 ' + (LEADERBOARD_BONUS_BLEND > 0 && data.bonusTargets && Object.keys(data.bonusTargets).length
+          ? 'Score = ' + Math.round((1 - LEADERBOARD_BONUS_BLEND) * 100) + '% efficiency (CPL 35 / CPSet 45 / COM 20) + ' + Math.round(LEADERBOARD_BONUS_BLEND * 100) + '% bonus targets hit'
+          : 'Score = CPL 35% + CPSet 45% + COM 20%');
 
       renderLeaderboardPodium(data, win);
       var rows = sortByMetric_(win.rows, LEADERBOARD_SORT);

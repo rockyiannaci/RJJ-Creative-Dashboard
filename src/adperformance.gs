@@ -668,7 +668,7 @@ function buildReverseClientNameMap_(podConfig) {
  * Static creatives (no CRTV code) never go through an Asana brief, so
  * there's no code to join on — attribution here is a fixed convention per
  * account/name, agreed with the pod directly rather than inferred:
- *   - "Collage ..." -> Rocky, on every account
+ *   - "Collage ..." -> Rocky, on every account (except Refloor's Collage V23 -> Julian)
  *   - RBA-ENY / RBA-QC, no CRTV code, not a Collage -> Julian
  *   - Leaf Home / Bath Planet, no CRTV code, not a Collage -> "Other"
  *   - Refloor / RBA-GW, no CRTV code, not a Collage -> Rocky (default)
@@ -699,6 +699,17 @@ function attributeStaticCreativeRow_(c, account) {
 
 function attributeCreativeRow_(c, briefByCode, reverseClientNameMap, podConfig) {
   var account = reverseClientNameMap[c.clientName] || c.clientName;
+
+  // Explicit exception to the "Collage -> Rocky" rule, agreed with the pod:
+  // Collage V23 on Refloor is Julian's creative.
+  if (account === 'Refloor' && /collage\s*v?0*23(?!\d)/i.test(c.adName || '')) {
+    return {
+      person: 'Julian DiVito',
+      account: account,
+      briefName: c.adName,
+      creativeType: 'Static/Raw Asset'
+    };
+  }
 
   if (!c.crtvCode) {
     return attributeStaticCreativeRow_(c, account);
