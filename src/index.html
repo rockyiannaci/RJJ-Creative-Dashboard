@@ -290,8 +290,7 @@
     }
     .lb-title { font-size: 17px; font-weight: 700; letter-spacing: -0.01em; color: var(--text); }
     .lb-sub { margin: 6px 0 0; font-size: 13px; color: var(--muted); max-width: 640px; }
-    #leaderboardRangeLabel { max-width: none; white-space: nowrap; }
-    @media (max-width: 900px) { #leaderboardRangeLabel { white-space: normal; } }
+    #leaderboardRangeLabel { max-width: none; white-space: pre-line; }
     .lb-tabs { display: flex; gap: 8px; flex-wrap: wrap; }
     .lb-tab {
       border: 1px solid var(--border);
@@ -2678,7 +2677,7 @@
       applyLeaderboardBlend_(data, win);
       label.textContent = shortDay_(win.start) + ' \u2013 ' + shortDay_(win.end) +
         (SELECTED_LEADERBOARD_WINDOW === 'matured' ? ' (42\u201314 days ago)' : '') +
-        ' \u00b7 Score = Head-to-head efficiency per account combined with bonus targets hit';
+        '\nScore = Head-to-head efficiency per account, combined with bonus targets hit';
 
       renderLeaderboardPodium(data, win);
       var rows = sortByMetric_(win.rows, LEADERBOARD_SORT);
