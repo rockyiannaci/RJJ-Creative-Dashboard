@@ -69,6 +69,17 @@ var POD_CONFIGS = {
       'Renewal By Andersen - QC': 3,
       'Bath Planet': 5
     },
+    // Bonus targets per account: the most reachable tier for each metric
+    // (from the Bonus Estimator sheet). Lower is better for all three. `tier`
+    // is the share of the bonus that tier pays. Bath Planet is not in the
+    // bonus sheet yet; add it here when it is.
+    bonusTargets: {
+      'Refloor': { cpl: { target: 94, tier: 100 }, cpSet: { target: 429, tier: 33 }, com: { target: 0.19, tier: 66 } },
+      'Leaf Home Enhancements': { cpl: { target: 106, tier: 66 }, cpSet: { target: 442, tier: 33 }, com: { target: 0.19, tier: 66 } },
+      'Renewal By Andersen - GW': { cpl: { target: 136, tier: 100 }, cpSet: { target: 652, tier: 33 }, com: { target: 0.19, tier: 66 } },
+      'Renewal By Andersen - ENY': { cpl: { target: 145, tier: 100 }, cpSet: { target: 610, tier: 33 }, com: { target: 0.19, tier: 66 } },
+      'Renewal By Andersen - QC': { cpl: { target: 85, tier: 100 }, cpSet: { target: 449, tier: 33 }, com: { target: 0.19, tier: 66 } }
+    },
     // Maps this pod's account keys and people to the exact string values
     // BigQuery's client_name / media_buyer columns use, so ad performance
     // data can be filtered to just this pod without touching the sync or

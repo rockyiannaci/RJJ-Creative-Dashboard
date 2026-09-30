@@ -329,6 +329,19 @@
     .lb-score span { font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); }
     .lb-tip { font-size: 12px; color: var(--muted); margin-top: 3px; line-height: 1.45; }
     .lb-tip strong { color: var(--text); font-weight: 600; }
+    .bt-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+    @media (max-width: 900px) { .bt-grid { grid-template-columns: 1fr; } }
+    .bt-card { border: 1px solid var(--border); border-radius: 12px; padding: 12px; overflow-x: auto; }
+    .bt-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 6px; }
+    .bt-name { font-weight: 700; font-size: 14px; }
+    .bt-count { font-size: 12px; color: var(--muted); }
+    .bt-card table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    .bt-card th { font-weight: 600; color: var(--muted); text-transform: uppercase; font-size: 10px; padding: 4px; text-align: right; }
+    .bt-card td { padding: 4px; text-align: right; border-top: 1px solid var(--border); }
+    .bt-card th:first-child, .bt-card td:first-child { text-align: left; }
+    .bt-tgt { display: block; font-size: 10px; color: var(--muted); font-weight: 400; }
+    .bt-hit { background: rgba(34, 197, 94, 0.18); color: #15803d; font-weight: 700; }
+    .bt-miss { color: var(--text); }
     .lb-hint { margin: 12px 0 0; font-size: 12px; color: var(--muted); text-align: center; }
     .lb-detail-title { margin: 18px 0 6px; font-size: 15px; font-weight: 700; color: var(--text); }
     .lb-table-card { overflow-x: auto; border-top: 1px solid var(--border); padding-top: 8px; }
@@ -504,6 +517,7 @@
             <table class="matrix-table" id="leaderboardTable"></table>
           </div>
           <div id="leaderboardDetail"></div>
+          <div id="bonusTracker"></div>
         </div>
 
         <div class="detail-section">
@@ -2483,6 +2497,59 @@
       }).join('');
     }
 
+    var BONUS_METRICS = [
+      { key: 'cpl', label: 'CPL', fmt: fmtMoney_ },
+      { key: 'cpSet', label: 'CPSet', fmt: fmtMoney_ },
+      { key: 'com', label: 'COM', fmt: fmtPct_ }
+    ];
+
+    // Bonus target check for one account/metric. Lower is better for all
+    // three metrics; a cell with no spend or no target is neither hit nor miss.
+    function bonusStatus_(data, account, key, cell) {
+      var t = ((data.bonusTargets || {})[account] || {})[key];
+      if (!t || !cell || !(cell.fbSpend > 0) || !(cell[key] > 0)) return { target: t || null, hit: false, live: false };
+      return { target: t, hit: cell[key] <= t.target, live: true };
+    }
+
+    function bonusTargetText_(metric, t) {
+      return '\u2264 ' + metric.fmt(t.target) + ' \u00b7 ' + t.tier + '%';
+    }
+
+    function renderBonusTracker(data, win) {
+      var el = document.getElementById('bonusTracker');
+      if (!data.bonusTargets || !Object.keys(data.bonusTargets).length) { el.innerHTML = ''; return; }
+      var html = '<div class="lb-detail-title">Bonus Target Tracker</div>' +
+        '<p class="lb-sub" style="margin:0 0 10px;">Green = hitting the account target for that metric (\u2264 target, with the bonus tier it pays). ' +
+        'Progress weights each account by spend and each metric 35/45/20, over the accounts the buyer runs.</p><div class="bt-grid">';
+      win.rows.forEach(function (r) {
+        var color = colorFor(r.person, data.people);
+        var hits = 0, total = 0, num = 0, den = 0;
+        var body = '';
+        data.accounts.forEach(function (account) {
+          var cell = r.byAccount[account];
+          if (!cell || !(cell.fbSpend > 0)) return;
+          if (!(data.bonusTargets || {})[account]) return;
+          var w = (win.weights || {})[account] || 0;
+          body += '<tr><td style="font-weight:600;">' + accountLabel(data, account) + '</td>';
+          BONUS_METRICS.forEach(function (m) {
+            var st = bonusStatus_(data, account, m.key, cell);
+            if (!st.live) { body += '<td>\u2014' + (st.target ? '<span class="bt-tgt">' + bonusTargetText_(m, st.target) + '</span>' : '') + '</td>'; return; }
+            total++; den += w * LEADERBOARD_BONUS_WEIGHTS[m.key];
+            if (st.hit) { hits++; num += w * LEADERBOARD_BONUS_WEIGHTS[m.key]; }
+            body += '<td class="' + (st.hit ? 'bt-hit' : 'bt-miss') + '">' + (st.hit ? '\u2713 ' : '') + m.fmt(cell[m.key]) +
+              '<span class="bt-tgt">' + bonusTargetText_(m, st.target) + '</span></td>';
+          });
+          body += '</tr>';
+        });
+        var pct = den > 0 ? Math.round((num / den) * 100) : 0;
+        html += '<div class="bt-card"><div class="bt-head"><span class="bt-name"><span class="buyer-dot" style="background:' + color + ';"></span>' + r.person + '</span>' +
+          '<span class="bt-count">' + hits + ' / ' + total + ' targets \u00b7 ' + pct + '% weighted</span></div>' +
+          '<table><thead><tr><th>Account</th>' + BONUS_METRICS.map(function (m) { return '<th>' + m.label + '</th>'; }).join('') + '</tr></thead><tbody>' +
+          (body || '<tr><td colspan="4" style="color:var(--muted);">No bonus-account spend in this window.</td></tr>') + '</tbody></table></div>';
+      });
+      el.innerHTML = html + '</div>';
+    }
+
     // One buyer's leaderboard metrics broken out by each of the six accounts.
     function renderLeaderboardDetail(data, win) {
       var el = document.getElementById('leaderboardDetail');
@@ -2505,7 +2572,10 @@
         cols.forEach(function (col) {
           if (idle) { html += '<td>\u2014</td>'; return; }
           var isKey = LEADERBOARD_KEY_METRICS.indexOf(col.key) !== -1;
-          html += '<td style="' + (isKey ? 'font-weight:700; background:' + hexToRgba_(color, 0.12) + ';' : '') + '">' + col.fmt(m[col.key]) + '</td>';
+          var st = bonusStatus_(data, account, col.key, m);
+          if (st.live && st.hit) { html += '<td class="bt-hit">\u2713 ' + col.fmt(m[col.key]) + '</td>'; return; }
+          html += '<td style="' + (isKey ? 'font-weight:700; background:' + hexToRgba_(color, 0.12) + ';' : '') + '">' + col.fmt(m[col.key]) +
+            (st.live ? '<span class="bt-tgt">' + bonusTargetText_({ fmt: col.fmt }, st.target) + '</span>' : '') + '</td>';
         });
         html += '</tr>';
       });
@@ -2560,6 +2630,7 @@
         };
       });
       renderLeaderboardDetail(data, win);
+      renderBonusTracker(data, win);
     }
 
     function renderLeaderboard(result) {

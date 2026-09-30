@@ -1030,6 +1030,7 @@ function getOverviewLeaderboard() {
     people: podConfig.people,
     accounts: podConfig.accounts,
     accountDisplayNames: podConfig.accountDisplayNames || {},
+    bonusTargets: podConfig.bonusTargets || {},
     since: buildWindow(readCreativePerformanceRows_(), CREATIVE_SYNC_START_DATE, formatDayOffset_(0)),
     matured: windowStart && windowEnd
       ? buildWindow(readCreativeWindowRows_(), windowStart, windowEnd)
