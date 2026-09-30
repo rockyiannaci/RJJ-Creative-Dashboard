@@ -2372,12 +2372,12 @@
     var LEADERBOARD_COLUMNS = [
       { key: 'score', label: 'Bonus Score', fmt: function (v) { return Math.round(v).toString(); } },
       { key: 'creatives', label: 'Creatives', fmt: function (v) { return Math.round(v).toLocaleString(); } },
-      { key: 'cpl', label: 'CPL · 35%', fmt: fmtMoney_ },
-      { key: 'cpSet', label: 'CPSet · 45%', fmt: fmtMoney_ },
+      { key: 'cpl', label: 'CPL', fmt: fmtMoney_ },
+      { key: 'cpSet', label: 'CPSet', fmt: fmtMoney_ },
       { key: 'cpd', label: 'CPD', fmt: fmtMoney_ },
       { key: 'fbSpend', label: 'FB Spend', fmt: fmtMoney_ },
       { key: 'revenue', label: 'Revenue', fmt: fmtMoney_ },
-      { key: 'com', label: 'COM · 20%', fmt: fmtPct_ }
+      { key: 'com', label: 'COM', fmt: fmtPct_ }
     ];
 
     // "2026-08-18" -> "Aug 18"
@@ -2481,6 +2481,21 @@
       }).join('');
     }
 
+    // Non-ranked reconciliation rows under the table: what isn't credited to
+    // Rocky/Julian/Jay ("Other"), and the full total for the six accounts so
+    // it can be checked against Looker Studio.
+    function leaderboardFootRow_(label, m, dotColor, isTotal) {
+      var cells = LEADERBOARD_COLUMNS.map(function (col) {
+        return '<td>' + (col.key === 'score' ? '' : col.fmt(m[col.key])) + '</td>';
+      }).join('');
+      var dot = dotColor ? '<span class="buyer-dot" style="background:' + dotColor + ';"></span>' : '';
+      var style = isTotal
+        ? 'color:var(--text); font-weight:700;'
+        : 'color:var(--muted); font-weight:500; border-top:none;';
+      return '<tr style="' + style + '"><td></td><td style="text-align:left; white-space:nowrap;">' + dot + label + '</td>' +
+        cells.replace(/<td>/g, '<td style="' + style + '">') + '</tr>';
+    }
+
     function renderLeaderboardTable(data) {
       var win = data[SELECTED_LEADERBOARD_WINDOW];
       var label = document.getElementById('leaderboardRangeLabel');
@@ -2517,7 +2532,8 @@
         html += '</tr>';
       });
 
-      html += '</tbody>';
+      html += '</tbody><tfoot>' + leaderboardFootRow_('Other (no pod member)', win.other, '#9aa0ae', false) +
+        leaderboardFootRow_('All six accounts', win.total, null, true) + '</tfoot>';
       table.innerHTML = html;
       bindSortableHeaders_(table, LEADERBOARD_SORT, function () { renderLeaderboardTable(data); });
     }

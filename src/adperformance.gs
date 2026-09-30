@@ -895,9 +895,25 @@ function getOverviewLeaderboard() {
     if (code && !briefByCode[code]) briefByCode[code] = b;
   });
 
+  function pack(rows, creativeCount) {
+    var m = computeCreativeMetrics_(sumCreativeTotals_(rows));
+    return {
+      creatives: creativeCount,
+      cpl: m.cpl,
+      cpSet: m.cpSet,
+      cpd: m.cpd,
+      fbSpend: m.fbSpend,
+      revenue: m.revenue,
+      com: m.com
+    };
+  }
+
   function buildWindow(creativeRows, startDate, endDate) {
     var rowsByPerson = {};
     var creativeKeysByPerson = {};
+    var otherRows = [];
+    var otherKeys = {};
+    var allKeys = {};
     podConfig.people.forEach(function (p) {
       rowsByPerson[p] = [];
       creativeKeysByPerson[p] = {};
@@ -906,8 +922,15 @@ function getOverviewLeaderboard() {
     // "Creatives" = distinct ads (by cleaned ad name, per account) that
     // actually spent in the window, matching how the Top 25 table counts.
     creativeRows.forEach(function (c) {
+      if (c.spend > 0) allKeys[c.adName + '::' + c.clientName] = true;
       var attr = attributeCreativeRow_(c, briefByCode, reverseClientNameMap, podConfig);
-      if (!attr || !rowsByPerson[attr.person]) return;
+      if (!attr) return;
+      if (attr.person === 'Other') {
+        otherRows.push(c);
+        if (c.spend > 0) otherKeys[c.adName + '::' + attr.account] = true;
+        return;
+      }
+      if (!rowsByPerson[attr.person]) return;
       rowsByPerson[attr.person].push(c);
       if (c.spend > 0) creativeKeysByPerson[attr.person][c.adName + '::' + attr.account] = true;
     });
@@ -916,20 +939,12 @@ function getOverviewLeaderboard() {
       start: startDate,
       end: endDate,
       rows: podConfig.people.map(function (person) {
-        var m = computeCreativeMetrics_(sumCreativeTotals_(rowsByPerson[person]));
-        return {
-          person: person,
-          metrics: {
-            creatives: Object.keys(creativeKeysByPerson[person]).length,
-            cpl: m.cpl,
-            cpSet: m.cpSet,
-            cpd: m.cpd,
-            fbSpend: m.fbSpend,
-            revenue: m.revenue,
-            com: m.com
-          }
-        };
-      })
+        return { person: person, metrics: pack(rowsByPerson[person], Object.keys(creativeKeysByPerson[person]).length) };
+      }),
+      // For reconciling against Looker Studio: creatives credited to no pod
+      // member ("Other"), and every synced row for the pod's six accounts.
+      other: pack(otherRows, Object.keys(otherKeys).length),
+      total: pack(creativeRows, Object.keys(allKeys).length)
     };
   }
 
