@@ -2591,7 +2591,7 @@
           var isKey = LEADERBOARD_KEY_METRICS.indexOf(col.key) !== -1;
           var st = bonusStatus_(data, account, col.key, m);
           if (st.live && st.hit) { html += '<td class="bt-hit">\u2713 ' + col.fmt(m[col.key]) + '<span class="bt-tgt">' + bonusTargetText_({ fmt: col.fmt }, st.target) + '</span></td>'; return; }
-          html += '<td' + (st.near ? ' class="bt-near"' : '') + ' style="' + (isKey && !st.live && !st.near ? 'font-weight:700; background:' + hexToRgba_(color, 0.12) + ';' : '') + '">' + col.fmt(m[col.key]) +
+          html += '<td' + (st.near ? ' class="bt-near"' : '') + ' style="' + (isKey && !st.live ? 'font-weight:700;' : '') + '">' + col.fmt(m[col.key]) +
             (st.live ? '<span class="bt-tgt">' + bonusTargetText_({ fmt: col.fmt }, st.target) + '</span>' : '') + '</td>';
         });
         html += '</tr>';
