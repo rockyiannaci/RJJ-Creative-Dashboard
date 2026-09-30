@@ -911,9 +911,6 @@ function getOverviewLeaderboard() {
   function buildWindow(creativeRows, startDate, endDate) {
     var rowsByPerson = {};
     var creativeKeysByPerson = {};
-    var otherRows = [];
-    var otherKeys = {};
-    var allKeys = {};
     podConfig.people.forEach(function (p) {
       rowsByPerson[p] = [];
       creativeKeysByPerson[p] = {};
@@ -922,14 +919,8 @@ function getOverviewLeaderboard() {
     // "Creatives" = distinct ads (by cleaned ad name, per account) that
     // actually spent in the window, matching how the Top 25 table counts.
     creativeRows.forEach(function (c) {
-      if (c.spend > 0) allKeys[c.adName + '::' + c.clientName] = true;
       var attr = attributeCreativeRow_(c, briefByCode, reverseClientNameMap, podConfig);
       if (!attr) return;
-      if (attr.person === 'Other') {
-        otherRows.push(c);
-        if (c.spend > 0) otherKeys[c.adName + '::' + attr.account] = true;
-        return;
-      }
       if (!rowsByPerson[attr.person]) return;
       rowsByPerson[attr.person].push(c);
       if (c.spend > 0) creativeKeysByPerson[attr.person][c.adName + '::' + attr.account] = true;
@@ -940,11 +931,7 @@ function getOverviewLeaderboard() {
       end: endDate,
       rows: podConfig.people.map(function (person) {
         return { person: person, metrics: pack(rowsByPerson[person], Object.keys(creativeKeysByPerson[person]).length) };
-      }),
-      // For reconciling against Looker Studio: creatives credited to no pod
-      // member ("Other"), and every synced row for the pod's six accounts.
-      other: pack(otherRows, Object.keys(otherKeys).length),
-      total: pack(creativeRows, Object.keys(allKeys).length)
+      })
     };
   }
 

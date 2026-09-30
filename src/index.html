@@ -2431,6 +2431,9 @@
       win.scored = true;
     }
 
+    // Matching the pod's best value on the metric that costs the most points
+    // wins back all of those points, so the target is that best value
+    // (rounded down so hitting the number really does match or beat it).
     function leaderboardTip_(r) {
       var labels = { cpl: 'CPL', cpSet: 'CPSet', com: 'COM' };
       var worst = null;
@@ -2440,31 +2443,10 @@
       var b = r.bonus[worst];
       if (b.lost < 0.5) return 'Leading on all three';
       if (b.value <= 0) return 'No ' + labels[worst] + ' data yet';
-      return 'Focus: ' + labels[worst] + ' \u00b7 up to +' + Math.round(b.lost) + ' pts';
-    }
-
-    // Gold / silver / bronze medal with a ribbon, drawn inline so it needs no
-    // image files. Gradient ids are per-rank so the three medals don't clash.
-    function medalSvg_(rank) {
-      var palettes = {
-        1: ['#fff0a8', '#f0b429', '#b8860b', '#6b4a00'],
-        2: ['#ffffff', '#b8bfcc', '#7c8496', '#3f4658'],
-        3: ['#f6c79b', '#c77d3a', '#8a4b1c', '#4d2508']
-      };
-      var c = palettes[rank];
-      if (!c) return '<span class="lb-medal">' + rank + '</span>';
-      var id = 'lbMedal' + rank;
-      return '<svg class="lb-medal" viewBox="0 0 40 52" width="40" height="52" aria-label="Place ' + rank + '">' +
-        '<defs><linearGradient id="' + id + '" x1="0.15" y1="0" x2="0.85" y2="1">' +
-        '<stop offset="0" stop-color="' + c[0] + '"/><stop offset="0.5" stop-color="' + c[1] + '"/>' +
-        '<stop offset="1" stop-color="' + c[2] + '"/></linearGradient></defs>' +
-        '<polygon points="9,0 21,0 23,22 11,27" fill="#4f5bff"/>' +
-        '<polygon points="31,0 19,0 17,22 29,27" fill="#3d47d6"/>' +
-        '<circle cx="20" cy="33" r="16" fill="url(#' + id + ')"/>' +
-        '<circle cx="20" cy="33" r="12.5" fill="none" stroke="rgba(255,255,255,0.65)" stroke-width="1.5"/>' +
-        '<circle cx="20" cy="33" r="16" fill="none" stroke="' + c[2] + '" stroke-width="1"/>' +
-        '<text x="20" y="39" text-anchor="middle" font-size="17" font-weight="800" fill="' + c[3] + '" ' +
-        'font-family="Inter, system-ui, sans-serif">' + rank + '</text></svg>';
+      var target = worst === 'com'
+        ? (Math.floor(b.best * 1000) / 10).toFixed(1) + '%'
+        : '$' + Math.floor(b.best).toLocaleString();
+      return labels[worst] + ' to ' + target + ' = +' + Math.round(b.lost) + ' pts';
     }
 
     function renderLeaderboardPodium(data, win) {
@@ -2479,21 +2461,6 @@
           '<div class="lb-tip">' + leaderboardTip_(r) + '</div></div>' +
           '<div class="lb-score"><strong>' + Math.round(r.metrics.score) + '</strong><span>score</span></div></div></div>';
       }).join('');
-    }
-
-    // Non-ranked reconciliation rows under the table: what isn't credited to
-    // Rocky/Julian/Jay ("Other"), and the full total for the six accounts so
-    // it can be checked against Looker Studio.
-    function leaderboardFootRow_(label, m, dotColor, isTotal) {
-      var cells = LEADERBOARD_COLUMNS.map(function (col) {
-        return '<td>' + (col.key === 'score' ? '' : col.fmt(m[col.key])) + '</td>';
-      }).join('');
-      var dot = dotColor ? '<span class="buyer-dot" style="background:' + dotColor + ';"></span>' : '';
-      var style = isTotal
-        ? 'color:var(--text); font-weight:700;'
-        : 'color:var(--muted); font-weight:500; border-top:none;';
-      return '<tr style="' + style + '"><td></td><td style="text-align:left; white-space:nowrap;">' + dot + label + '</td>' +
-        cells.replace(/<td>/g, '<td style="' + style + '">') + '</tr>';
     }
 
     function renderLeaderboardTable(data) {
@@ -2511,7 +2478,7 @@
 
       label.textContent = shortDay_(win.start) + ' \u2013 ' + shortDay_(win.end) +
         (SELECTED_LEADERBOARD_WINDOW === 'matured' ? ' (42\u201314 days ago)' : '') +
-        ' \u00b7 Score = CPL 35% + CPSet 45% + COM 20%, each vs the best in the pod';
+        ' \u00b7 Score = CPL 35% + CPSet 45% + COM 20%';
 
       if (!win.scored) scoreLeaderboard_(win);
       renderLeaderboardPodium(data, win);
@@ -2532,8 +2499,7 @@
         html += '</tr>';
       });
 
-      html += '</tbody><tfoot>' + leaderboardFootRow_('Other (no pod member)', win.other, '#9aa0ae', false) +
-        leaderboardFootRow_('All six accounts', win.total, null, true) + '</tfoot>';
+      html += '</tbody>';
       table.innerHTML = html;
       bindSortableHeaders_(table, LEADERBOARD_SORT, function () { renderLeaderboardTable(data); });
     }
