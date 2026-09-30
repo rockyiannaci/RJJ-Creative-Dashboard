@@ -2492,8 +2492,8 @@
         }
         BONUS_METRICS.forEach(function (m) {
           var st = bonusStatus_(data, account, m.key, cell);
-          if (!st.live) return;
           total++;
+          if (!st.live) return;
           var pts = w * share * LEADERBOARD_BONUS_WEIGHTS[m.key] * 100;
           if (st.hit) { hits++; score += pts; return; }
           var gap = cell[m.key] / st.target.target - 1;
@@ -2522,7 +2522,9 @@
         });
         body += '</tr>';
       });
-      var pct = Math.round(bonusStats_(data, win, cellFor, !isAll).score);
+      var stats = bonusStats_(data, win, cellFor, !isAll);
+      var pct = Math.round(stats.score);
+      hits = stats.hits; total = stats.total;
       return '<div class="bt-card' + (isAll ? ' bt-all' : '') + '"><div class="bt-head"><span class="bt-name"><span class="buyer-dot" style="background:' + dotColor + ';"></span>' + title +
         (subtitle ? ' <span class="bt-count">' + subtitle + '</span>' : '') + '</span>' +
         '<span class="bt-count">' + hits + ' / ' + total + ' targets \u00b7 ' + pct + '% of bonus pool</span></div>' +
