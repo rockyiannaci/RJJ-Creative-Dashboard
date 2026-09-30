@@ -393,8 +393,9 @@ function syncCreativePerformanceData() {
   // Runs after the main data is saved, so a failure here still leaves the
   // month-level data fresh (and shows up as an error on the trigger).
   var windowRows = syncCreativeWindowData_();
+  var totalRows = syncAccountTotals_();
 
-  return { rowsSynced: rows.length, windowRowsSynced: windowRows };
+  return { rowsSynced: rows.length, windowRowsSynced: windowRows, accountTotalsRows: totalRows };
 }
 
 var CREATIVE_WINDOW_SHEET_NAME = 'CreativeWindow';
@@ -489,6 +490,87 @@ function syncCreativeWindowData_() {
     CREATIVE_WINDOW_END: endDate
   });
   return rows.length;
+}
+
+// ---------------------------------------------------------------------------
+// Whole-account totals, straight from BigQuery with nothing excluded (the
+// "Unassigned ..." ad rows carry leads, sets and revenue but no spend), so the
+// per-account numbers match what the LSR shows for a client.
+// ---------------------------------------------------------------------------
+var ACCOUNT_TOTALS_SHEET_NAME = 'AccountTotals';
+var ACCOUNT_TOTALS_SINCE_KEY = 'since';
+
+function buildAccountTotalsQuery_(podConfig, startDate, endDate) {
+  var cfg = AD_PERFORMANCE_CONFIG;
+  var clientNames = Object.keys(podConfig.adPerformanceClientNameMap).map(function (key) {
+    return bqStringLiteral_(podConfig.adPerformanceClientNameMap[key]);
+  });
+  var where = [
+    'WHERE ' + cfg.dateColumn + ' >= ' + bqStringLiteral_(startDate),
+    endDate ? '  AND ' + cfg.dateColumn + ' <= ' + bqStringLiteral_(endDate) : null,
+    '  AND ' + cfg.clientNameColumn + ' IN (' + clientNames.join(', ') + ')'
+  ].filter(Boolean);
+  return [
+    'SELECT',
+    '  ' + cfg.clientNameColumn + ' AS client_name,',
+    '  SUM(total_spend) AS total_spend,',
+    '  SUM(count_leads) AS count_leads,',
+    '  SUM(count_set) AS count_set,',
+    '  SUM(count_demo) AS count_demo,',
+    '  SUM(count_sold) AS count_sold,',
+    '  SUM(sum_revenue) AS sum_revenue',
+    'FROM `' + cfg.projectId + '.' + cfg.dataset + '.' + cfg.table + '`'
+  ].concat(where, ['GROUP BY client_name']).join('\n');
+}
+
+function syncAccountTotals_() {
+  var podConfig = getActivePodConfig();
+  var scopes = [
+    { key: CREATIVE_WINDOW_KEY, start: formatDayOffset_(MATURED_WINDOW_START_DAYS_BACK), end: formatDayOffset_(MATURED_WINDOW_END_DAYS_BACK) },
+    { key: ACCOUNT_TOTALS_SINCE_KEY, start: CREATIVE_SYNC_START_DATE, end: null }
+  ];
+  var rows = [];
+  scopes.forEach(function (scope) {
+    runBigQueryQuery_(AD_PERFORMANCE_CONFIG.projectId, buildAccountTotalsQuery_(podConfig, scope.start, scope.end))
+      .forEach(function (r) {
+        rows.push([
+          scope.key,
+          r.client_name,
+          Number(r.total_spend || 0),
+          Number(r.count_leads || 0),
+          Number(r.count_set || 0),
+          Number(r.count_demo || 0),
+          Number(r.count_sold || 0),
+          Number(r.sum_revenue || 0)
+        ]);
+      });
+  });
+
+  var sheet = getOrCreateSheetTab_(getOrCreateSpreadsheet_(), ACCOUNT_TOTALS_SHEET_NAME, [
+    'scope', 'client_name', 'total_spend', 'count_leads', 'count_set', 'count_demo', 'count_sold', 'sum_revenue'
+  ]);
+  if (sheet.getMaxRows() > 1) {
+    sheet.getRange(2, 1, sheet.getMaxRows() - 1, sheet.getMaxColumns()).clearContent();
+  }
+  if (rows.length > 0) {
+    sheet.getRange(2, 1, rows.length, rows[0].length).setValues(rows);
+  }
+  return rows.length;
+}
+
+// { scopeKey: { clientName: {spend, leads, sets, demos, sold, revenue} } }
+function readAccountTotals_() {
+  var sheetId = PropertiesService.getScriptProperties().getProperty('SHEET_ID');
+  if (!sheetId) return {};
+  var sheet = SpreadsheetApp.openById(sheetId).getSheetByName(ACCOUNT_TOTALS_SHEET_NAME);
+  if (!sheet || sheet.getLastRow() < 2) return {};
+  var out = {};
+  sheet.getRange(2, 1, sheet.getLastRow() - 1, 8).getValues().forEach(function (r) {
+    (out[r[0]] = out[r[0]] || {})[r[1]] = {
+      spend: r[2], leads: r[3], sets: r[4], demos: r[5], sold: r[6], revenue: r[7]
+    };
+  });
+  return out;
 }
 
 function readCreativeWindowRows_() {
@@ -980,7 +1062,9 @@ function getOverviewLeaderboard() {
     });
   }
 
-  function buildWindow(creativeRows, startDate, endDate) {
+  var allAccountTotals = readAccountTotals_();
+
+  function buildWindow(creativeRows, startDate, endDate, totalsForScope) {
     var weights = accountWeightsFor(creativeRows);
     var rowsByPerson = {};
     var creativeKeysByPerson = {};
@@ -1019,8 +1103,9 @@ function getOverviewLeaderboard() {
         return { person: person, metrics: metrics, byAccount: byAccount };
     });
     scoreBuyers(scoredRows);
-    // Whole-account totals (every buyer plus unattributed/"Other" ads), i.e.
-    // what the LSR shows per client, for the bonus target tracker.
+    // Whole-account totals straight from BigQuery (Unassigned rows included),
+    // i.e. what the LSR shows per client. Falls back to summing the creative
+    // rows until the first sync writes the AccountTotals sheet.
     var rowsByAccount = {};
     creativeRows.forEach(function (c) {
       var account = reverseClientNameMap[c.clientName];
@@ -1028,7 +1113,9 @@ function getOverviewLeaderboard() {
     });
     var accountTotals = {};
     podConfig.accounts.forEach(function (account) {
-      accountTotals[account] = pack(rowsByAccount[account] || [], 0);
+      var clientName = podConfig.adPerformanceClientNameMap[account];
+      var exact = totalsForScope && totalsForScope[clientName];
+      accountTotals[account] = pack(exact ? [exact] : (rowsByAccount[account] || []), 0);
     });
     return { start: startDate, end: endDate, rows: scoredRows, weights: weights, accountTotals: accountTotals };
   }
@@ -1042,9 +1129,9 @@ function getOverviewLeaderboard() {
     accounts: podConfig.accounts,
     accountDisplayNames: podConfig.accountDisplayNames || {},
     bonusTargets: podConfig.bonusTargets || {},
-    since: buildWindow(readCreativePerformanceRows_(), CREATIVE_SYNC_START_DATE, formatDayOffset_(0)),
+    since: buildWindow(readCreativePerformanceRows_(), CREATIVE_SYNC_START_DATE, formatDayOffset_(0), allAccountTotals[ACCOUNT_TOTALS_SINCE_KEY]),
     matured: windowStart && windowEnd
-      ? buildWindow(readCreativeWindowRows_(), windowStart, windowEnd)
+      ? buildWindow(readCreativeWindowRows_(), windowStart, windowEnd, allAccountTotals[CREATIVE_WINDOW_KEY])
       : null
   };
 }
