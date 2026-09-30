@@ -2417,7 +2417,7 @@
 
     // Gold / silver / bronze medal with a ribbon, drawn inline so it needs no
     // image files. Gradient ids are per-rank so the three medals don't clash.
-    function medalSvg_(rank) {
+    function medalSvg_(rank, idPrefix) {
       var palettes = {
         1: ['#fff0a8', '#f0b429', '#b8860b', '#6b4a00'],
         2: ['#ffffff', '#b8bfcc', '#7c8496', '#3f4658'],
@@ -2425,7 +2425,7 @@
       };
       var c = palettes[rank];
       if (!c) return '<span class="lb-medal">' + rank + '</span>';
-      var id = 'lbMedal' + rank;
+      var id = (idPrefix || 'lbMedal') + rank;
       return '<svg class="lb-medal" viewBox="0 0 40 52" width="40" height="52" aria-label="Place ' + rank + '">' +
         '<defs><linearGradient id="' + id + '" x1="0.15" y1="0" x2="0.85" y2="1">' +
         '<stop offset="0" stop-color="' + c[0] + '"/><stop offset="0.5" stop-color="' + c[1] + '"/>' +
@@ -2565,15 +2565,11 @@
       });
       el.innerHTML = '<div class="lb-podium">' + ranked.map(function (x, i) {
         var color = colorFor(x.row.person, data.people);
-        var n = x.stats.next;
-        var tip = n
-          ? '<strong>' + accountLabel(data, n.account) + ' ' + n.metric.label + ' \u2264 ' + n.metric.fmt(n.target.target) + '</strong> = +' + (Math.round(n.pts * 10) / 10) + ' pts'
-          : '<strong>All live targets hit</strong>';
         return '<div class="lb-card' + (i === 0 ? ' lb-first' : '') + '" style="--c:' + color + ';' +
           (i === 0 ? 'background:' + hexToRgba_(color, 0.05) + ';' : '') + '">' +
-          '<div class="lb-top">' + medalSvg_(i + 1) +
+          '<div class="lb-top">' + medalSvg_(i + 1, 'btMedal') +
           '<div class="lb-who"><div class="lb-name">' + x.row.person + '</div>' +
-          '<div class="lb-tip">' + x.stats.hits + ' / ' + x.stats.total + ' targets hit<br>' + tip + '</div></div>' +
+          '<div class="lb-tip">' + x.stats.hits + ' / ' + x.stats.total + ' targets hit</div></div>' +
           '<div class="lb-score"><strong>' + (Math.round(x.stats.score * 10) / 10).toFixed(1) + '%</strong><span>of bonus</span></div></div></div>';
       }).join('') + '</div>';
     }
