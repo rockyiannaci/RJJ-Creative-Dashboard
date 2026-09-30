@@ -2459,15 +2459,15 @@
       return '\u2264 ' + metric.fmt(t.target) + ' \u00b7 ' + t.tier + '%';
     }
 
-    var BONUS_MIN_CELL_SPEND = 5000;
-
     // Share of the whole bonus pool a set of results is currently earning:
     // each account's weight is its spend share among the accounts that have
     // targets, split across CPL/CPSet/COM 35/45/20, and a metric earns its
-    // slice when it is at or under target. Cells with under $5K of spend
-    // don't count (too small a sample). Also finds the best next move: the
-    // miss that is closest to target for the most points.
-    function bonusStats_(data, win, cellFor) {
+    // slice when it is at or under target. For a media buyer the slice is
+    // scaled by their share of that account's spend (someone running 5% of
+    // Refloor can't claim Refloor's bonus), so thin samples barely count.
+    // Also finds the best next move: the miss that is closest to target
+    // for the most points.
+    function bonusStats_(data, win, cellFor, scaleByShare) {
       var targetAccounts = data.accounts.filter(function (a) { return (data.bonusTargets || {})[a]; });
       var podTotal = 0;
       targetAccounts.forEach(function (a) { podTotal += (win.weights || {})[a] || 0; });
@@ -2475,11 +2475,17 @@
       targetAccounts.forEach(function (account) {
         var cell = cellFor(account);
         var w = podTotal > 0 ? (((win.weights || {})[account] || 0) / podTotal) : 0;
+        var share = 1;
+        if (scaleByShare) {
+          var accountSpend = 0;
+          win.rows.forEach(function (r) { accountSpend += (r.byAccount[account] || {}).fbSpend || 0; });
+          share = accountSpend > 0 && cell ? cell.fbSpend / accountSpend : 0;
+        }
         BONUS_METRICS.forEach(function (m) {
           var st = bonusStatus_(data, account, m.key, cell);
-          if (!st.live || cell.fbSpend < BONUS_MIN_CELL_SPEND) return;
+          if (!st.live) return;
           total++;
-          var pts = w * LEADERBOARD_BONUS_WEIGHTS[m.key] * 100;
+          var pts = w * share * LEADERBOARD_BONUS_WEIGHTS[m.key] * 100;
           if (st.hit) { hits++; score += pts; return; }
           var gap = cell[m.key] / st.target.target - 1;
           var value = pts / (1 + gap * 4);
@@ -2507,7 +2513,7 @@
         });
         body += '</tr>';
       });
-      var pct = Math.round(bonusStats_(data, win, cellFor).score);
+      var pct = Math.round(bonusStats_(data, win, cellFor, !isAll).score);
       return '<div class="bt-card' + (isAll ? ' bt-all' : '') + '"><div class="bt-head"><span class="bt-name"><span class="buyer-dot" style="background:' + dotColor + ';"></span>' + title +
         (subtitle ? ' <span class="bt-count">' + subtitle + '</span>' : '') + '</span>' +
         '<span class="bt-count">' + hits + ' / ' + total + ' targets \u00b7 ' + pct + '% of bonus pool</span></div>' +
@@ -2515,26 +2521,29 @@
         (body || '<tr><td colspan="4" style="color:var(--muted);">No bonus-account spend in this window.</td></tr>') + '</tbody></table></div>';
     }
 
-    var BONUS_LEGEND = 'Green = target hit \u00b7 Yellow = within 5% of target \u00b7 tier shown under each value. Bonus pool % = share of the total bonus captured (accounts by spend, metrics 35/45/20; cells under $5K spend don\u2019t count).';
+    var BONUS_LEGEND = 'Green = target hit \u00b7 Yellow = within 5% of target \u00b7 tier shown under each value. Bonus pool % = share of the total bonus earned (accounts by spend, metrics 35/45/20; a buyer\u2019s hits count in proportion to their share of that account\u2019s spend).';
 
     function renderBonusLeaderboard(data, win) {
       var el = document.getElementById('bonusLeaderboard');
       var ranked = win.rows.map(function (r) {
-        var s = bonusStats_(data, win, function (a) { return r.byAccount[a]; });
+        var s = bonusStats_(data, win, function (a) { return r.byAccount[a]; }, true);
         return { row: r, stats: s };
-      }).sort(function (a, b) { return b.stats.score - a.stats.score || b.stats.hits - a.stats.hits; });
+      }).sort(function (a, b) {
+        // Scores within half a point are effectively tied: more targets hit wins.
+        return Math.abs(b.stats.score - a.stats.score) < 0.5 ? b.stats.hits - a.stats.hits : b.stats.score - a.stats.score;
+      });
       el.innerHTML = '<div class="lb-podium">' + ranked.map(function (x, i) {
         var color = colorFor(x.row.person, data.people);
         var n = x.stats.next;
         var tip = n
-          ? '<strong>' + accountLabel(data, n.account) + ' ' + n.metric.label + ' \u2264 ' + n.metric.fmt(n.target.target) + '</strong> = +' + Math.max(1, Math.round(n.pts)) + ' pts'
+          ? '<strong>' + accountLabel(data, n.account) + ' ' + n.metric.label + ' \u2264 ' + n.metric.fmt(n.target.target) + '</strong> = +' + (Math.round(n.pts * 10) / 10) + ' pts'
           : '<strong>All live targets hit</strong>';
         return '<div class="lb-card' + (i === 0 ? ' lb-first' : '') + '" style="--c:' + color + ';' +
           (i === 0 ? 'background:' + hexToRgba_(color, 0.05) + ';' : '') + '">' +
           '<div class="lb-top">' + medalSvg_(i + 1) +
           '<div class="lb-who"><div class="lb-name">' + x.row.person + '</div>' +
           '<div class="lb-tip">' + x.stats.hits + ' / ' + x.stats.total + ' targets hit<br>' + tip + '</div></div>' +
-          '<div class="lb-score"><strong>' + Math.round(x.stats.score) + '%</strong><span>of bonus</span></div></div></div>';
+          '<div class="lb-score"><strong>' + (Math.round(x.stats.score * 10) / 10).toFixed(1) + '%</strong><span>of bonus</span></div></div></div>';
       }).join('') + '</div>';
     }
 
