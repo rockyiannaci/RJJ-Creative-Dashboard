@@ -714,6 +714,7 @@
             </div>
             <div class="lb-tabs" id="bonusTabs"></div>
           </div>
+          <div id="bonusLeaderboard" style="margin-top:12px;"></div>
           <div id="bonusTrackerFull"></div>
         </div>
       </div>
@@ -2458,6 +2459,36 @@
       return '\u2264 ' + metric.fmt(t.target) + ' \u00b7 ' + t.tier + '%';
     }
 
+    var BONUS_MIN_CELL_SPEND = 5000;
+
+    // Share of the whole bonus pool a set of results is currently earning:
+    // each account's weight is its spend share among the accounts that have
+    // targets, split across CPL/CPSet/COM 35/45/20, and a metric earns its
+    // slice when it is at or under target. Cells with under $5K of spend
+    // don't count (too small a sample). Also finds the best next move: the
+    // miss that is closest to target for the most points.
+    function bonusStats_(data, win, cellFor) {
+      var targetAccounts = data.accounts.filter(function (a) { return (data.bonusTargets || {})[a]; });
+      var podTotal = 0;
+      targetAccounts.forEach(function (a) { podTotal += (win.weights || {})[a] || 0; });
+      var score = 0, hits = 0, total = 0, next = null;
+      targetAccounts.forEach(function (account) {
+        var cell = cellFor(account);
+        var w = podTotal > 0 ? (((win.weights || {})[account] || 0) / podTotal) : 0;
+        BONUS_METRICS.forEach(function (m) {
+          var st = bonusStatus_(data, account, m.key, cell);
+          if (!st.live || cell.fbSpend < BONUS_MIN_CELL_SPEND) return;
+          total++;
+          var pts = w * LEADERBOARD_BONUS_WEIGHTS[m.key] * 100;
+          if (st.hit) { hits++; score += pts; return; }
+          var gap = cell[m.key] / st.target.target - 1;
+          var value = pts / (1 + gap * 4);
+          if (!next || value > next.value) next = { account: account, metric: m, target: st.target, value: value, pts: pts, current: cell[m.key] };
+        });
+      });
+      return { score: score, hits: hits, total: total, next: next };
+    }
+
     function bonusCardHtml_(data, win, title, dotColor, cellFor, subtitle, isAll) {
       var hits = 0, total = 0, num = 0, den = 0, body = '';
       data.accounts.forEach(function (account) {
@@ -2476,23 +2507,45 @@
         });
         body += '</tr>';
       });
-      var pct = den > 0 ? Math.round((num / den) * 100) : 0;
+      var pct = Math.round(bonusStats_(data, win, cellFor).score);
       return '<div class="bt-card' + (isAll ? ' bt-all' : '') + '"><div class="bt-head"><span class="bt-name"><span class="buyer-dot" style="background:' + dotColor + ';"></span>' + title +
         (subtitle ? ' <span class="bt-count">' + subtitle + '</span>' : '') + '</span>' +
-        '<span class="bt-count">' + hits + ' / ' + total + ' targets \u00b7 ' + pct + '% weighted</span></div>' +
+        '<span class="bt-count">' + hits + ' / ' + total + ' targets \u00b7 ' + pct + '% of bonus pool</span></div>' +
         '<table><thead><tr><th>Account</th>' + BONUS_METRICS.map(function (m) { return '<th>' + m.label + '</th>'; }).join('') + '</tr></thead><tbody>' +
         (body || '<tr><td colspan="4" style="color:var(--muted);">No bonus-account spend in this window.</td></tr>') + '</tbody></table></div>';
     }
 
-    var BONUS_LEGEND = 'Green = target hit \u00b7 Yellow = within 5% of target \u00b7 tier shown under each value. Weighted % = spend-weighted, metrics 35/45/20.';
+    var BONUS_LEGEND = 'Green = target hit \u00b7 Yellow = within 5% of target \u00b7 tier shown under each value. Bonus pool % = share of the total bonus captured (accounts by spend, metrics 35/45/20; cells under $5K spend don\u2019t count).';
+
+    function renderBonusLeaderboard(data, win) {
+      var el = document.getElementById('bonusLeaderboard');
+      var ranked = win.rows.map(function (r) {
+        var s = bonusStats_(data, win, function (a) { return r.byAccount[a]; });
+        return { row: r, stats: s };
+      }).sort(function (a, b) { return b.stats.score - a.stats.score || b.stats.hits - a.stats.hits; });
+      el.innerHTML = '<div class="lb-podium">' + ranked.map(function (x, i) {
+        var color = colorFor(x.row.person, data.people);
+        var n = x.stats.next;
+        var tip = n
+          ? '<strong>' + accountLabel(data, n.account) + ' ' + n.metric.label + ' \u2264 ' + n.metric.fmt(n.target.target) + '</strong> = +' + Math.max(1, Math.round(n.pts)) + ' pts'
+          : '<strong>All live targets hit</strong>';
+        return '<div class="lb-card' + (i === 0 ? ' lb-first' : '') + '" style="--c:' + color + ';' +
+          (i === 0 ? 'background:' + hexToRgba_(color, 0.05) + ';' : '') + '">' +
+          '<div class="lb-top">' + medalSvg_(i + 1) +
+          '<div class="lb-who"><div class="lb-name">' + x.row.person + '</div>' +
+          '<div class="lb-tip">' + x.stats.hits + ' / ' + x.stats.total + ' targets hit<br>' + tip + '</div></div>' +
+          '<div class="lb-score"><strong>' + Math.round(x.stats.score) + '%</strong><span>of bonus</span></div></div></div>';
+      }).join('') + '</div>';
+    }
 
     function renderBonusTracker(data, win) {
       var overview = document.getElementById('bonusTracker');
       var full = document.getElementById('bonusTrackerFull');
+      var board = document.getElementById('bonusLeaderboard');
       var tabs = document.getElementById('bonusTabs');
       var label = document.getElementById('bonusRangeLabel');
       if (!data.bonusTargets || !Object.keys(data.bonusTargets).length) {
-        overview.innerHTML = ''; full.innerHTML = ''; tabs.innerHTML = ''; label.textContent = '';
+        overview.innerHTML = ''; full.innerHTML = ''; board.innerHTML = ''; tabs.innerHTML = ''; label.textContent = '';
         return;
       }
       var allCard = win.accountTotals
@@ -2520,6 +2573,7 @@
         tabs.appendChild(btn);
       });
 
+      renderBonusLeaderboard(data, win);
       var html = '<div style="margin:12px 0;">' + allCard + '</div><div class="bt-grid">';
       win.rows.forEach(function (r) {
         html += bonusCardHtml_(data, win, r.person, colorFor(r.person, data.people), function (a) { return r.byAccount[a]; }, '', false);
