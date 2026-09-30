@@ -1052,7 +1052,6 @@ function getOverviewLeaderboard() {
 
   var SCORE_RATIO_CAP = 1.5;
   var SCORE_FOOTPRINT_EXPONENT = 0.35;
-  var SCORE_COVERAGE_WEIGHT = 0.1;
 
   // Mix-adjusted efficiency, so a buyer isn't rewarded or punished for which
   // accounts they brief. Each buyer is judged on every account against what the
@@ -1061,18 +1060,11 @@ function getOverviewLeaderboard() {
   // with each other and not with Refloor. Accounts count by the pod's spend
   // priority, discounted (share^0.35) when the buyer runs only a sliver of an
   // account; ratios are capped so one lucky thin cell can't dominate.
-  // A small coverage term (10%) then credits briefing across all accounts:
-  // half by account priority, half equal. Full credit on an account needs that
-  // account's share of the pod's monthly brief target (target / people, scaled
-  // to the window length), so small accounts need only a few creatives.
-  function scoreBuyers(rows, weights, creativeRows, startDate, endDate) {
-    var days = Math.max(1, (new Date(endDate + 'T00:00:00Z') - new Date(startDate + 'T00:00:00Z')) / 86400000 + 1);
-    var months = Math.max(days / 30.4, 0.5);
-    var expected = {};
-    podConfig.accounts.forEach(function (account) {
-      var monthly = (podConfig.monthlyAccountTargets || {})[account] || 0;
-      expected[account] = Math.max(1, Math.round((monthly / podConfig.people.length) * months));
-    });
+  // It scores the performance of every creative credited to a buyer, whenever
+  // it was briefed, so Rocky's older briefs still earning count for him while
+  // Julian and Jay are not judged on how much they brief (that is tracked
+  // against the monthly targets instead).
+  function scoreBuyers(rows, weights, creativeRows) {
     var pooled = {};
     creativeRows.forEach(function (c) {
       var account = reverseClientNameMap[c.clientName];
@@ -1116,32 +1108,17 @@ function getOverviewLeaderboard() {
       best[k] = Math.max.apply(null, idx.map(function (ix) { return ix[k]; }).concat([0]));
     });
 
-    var n = podConfig.accounts.length;
-    var coverageWeights = {};
-    var coverageTotal = 0;
-    podConfig.accounts.forEach(function (account) {
-      coverageWeights[account] = 0.5 * (weights[account] || 0) + 0.5 / n;
-      coverageTotal += coverageWeights[account];
-    });
-
     rows.forEach(function (r, i) {
       var mix = maxComp > 0 ? (100 * comps[i]) / maxComp : 0;
-      var coverage = 0;
-      podConfig.accounts.forEach(function (account) {
-        var creatives = r.byAccount[account].creatives || 0;
-        coverage += coverageWeights[account] * Math.min(1, creatives / expected[account]);
-      });
-      coverage = coverageTotal > 0 ? (100 * coverage) / coverageTotal : 0;
       r.metrics.mixScore = mix;
-      r.metrics.coverage = coverage;
-      r.metrics.score = (1 - SCORE_COVERAGE_WEIGHT) * mix + SCORE_COVERAGE_WEIGHT * coverage;
+      r.metrics.score = mix;
       r.bonus = {};
       Object.keys(SCORE_WEIGHTS).forEach(function (k) {
         var value = r.metrics[k];
         var mine = idx[i][k];
         var target = mine > 0 && best[k] > 0 ? value * (mine / best[k]) : 0;
         var gain = maxComp > 0 && mine > 0
-          ? (1 - SCORE_COVERAGE_WEIGHT) * (100 * SCORE_WEIGHTS[k] * (best[k] - mine)) / maxComp
+          ? (100 * SCORE_WEIGHTS[k] * (best[k] - mine)) / maxComp
           : 0;
         r.bonus[k] = { value: value, target: target, gain: gain };
       });
@@ -1188,7 +1165,7 @@ function getOverviewLeaderboard() {
         var metrics = pack(rowsByPerson[person], Object.keys(creativeKeysByPerson[person]).length);
         return { person: person, metrics: metrics, byAccount: byAccount };
     });
-    scoreBuyers(scoredRows, weights, creativeRows, startDate, endDate);
+    scoreBuyers(scoredRows, weights, creativeRows);
     // Whole-account totals straight from BigQuery (Unassigned rows included),
     // i.e. what the LSR shows per client. Falls back to summing the creative
     // rows until the first sync writes the AccountTotals sheet.
