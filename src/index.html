@@ -317,6 +317,8 @@
       border-radius: 16px;
       padding: 14px 16px;
     }
+    .lb-clickable { cursor: pointer; }
+    .lb-card.lb-selected { box-shadow: 0 0 0 2px var(--c); }
     .lb-card.lb-first { box-shadow: 0 8px 22px rgba(20, 20, 28, 0.10); }
     .lb-top { display: flex; align-items: center; gap: 12px; }
     .lb-medal { flex: 0 0 auto; filter: drop-shadow(0 2px 3px rgba(20, 20, 28, 0.25)); }
@@ -327,6 +329,8 @@
     .lb-score span { font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); }
     .lb-tip { font-size: 12px; color: var(--muted); margin-top: 3px; line-height: 1.45; }
     .lb-tip strong { color: var(--text); font-weight: 600; }
+    .lb-hint { margin: 12px 0 0; font-size: 12px; color: var(--muted); text-align: center; }
+    .lb-detail-title { margin: 18px 0 6px; font-size: 15px; font-weight: 700; color: var(--text); }
     .lb-table-card { overflow-x: auto; border-top: 1px solid var(--border); padding-top: 8px; }
     .buyer-dot {
       display: inline-block;
@@ -499,6 +503,7 @@
           <div class="lb-table-card">
             <table class="matrix-table" id="leaderboardTable"></table>
           </div>
+          <div id="leaderboardDetail"></div>
         </div>
 
         <div class="detail-section">
@@ -2369,6 +2374,7 @@
     var LEADERBOARD_DATA = null;
     var SELECTED_LEADERBOARD_WINDOW = 'matured';
     var LEADERBOARD_SORT = { key: 'score', dir: 'desc' };
+    var SELECTED_LEADERBOARD_BUYER = null;
     var LEADERBOARD_BONUS_WEIGHTS = { cpl: 0.35, cpSet: 0.45, com: 0.20 };
     var LEADERBOARD_KEY_METRICS = ['cpl', 'cpSet', 'cpd', 'com'];
     var LEADERBOARD_COLUMNS = [
@@ -2433,48 +2439,23 @@
       win.scored = true;
     }
 
-    // Up to the two metrics where the most bonus points are on the table, each
-    // with the exact number to hit (the pod's best, rounded down so hitting it
-    // really matches or beats it), then what hitting both would do to the
-    // rankings. Recomputed from the latest synced data on every load, so the
-    // targets move as the 42-14 window rolls forward and the pod's numbers move.
-    function leaderboardTip_(r, ranked, idx) {
+    // The one metric where the most bonus points are on the table, with the
+    // exact number to hit (the pod's best, rounded down so hitting it really
+    // matches or beats it). Recomputed from the latest synced data on every
+    // load, so it moves as the 42-14 window rolls forward.
+    function leaderboardTip_(r) {
       var labels = { cpl: 'CPL', cpSet: 'CPSet', com: 'COM' };
-      var first = function (rowObj) { return rowObj.person.split(' ')[0]; };
-      var fmtTarget = function (k, best) {
-        return k === 'com' ? (Math.floor(best * 1000) / 10).toFixed(1) + '%' : '$' + Math.floor(best).toLocaleString();
-      };
-      var keys = Object.keys(r.bonus);
-      var opps = keys.filter(function (k) { return r.bonus[k].value > 0 && r.bonus[k].lost >= 0.5; })
-        .sort(function (a, b) { return r.bonus[b].lost - r.bonus[a].lost; }).slice(0, 2);
-
-      if (!opps.length) {
-        var missing = keys.filter(function (k) { return r.bonus[k].value <= 0; })[0];
-        if (missing) return '<strong>No ' + labels[missing] + ' data yet</strong>';
-        var lead = idx === 0 && ranked[1] ? 'Leads ' + first(ranked[1]) + ' by ' +
-          Math.round(r.metrics.score - ranked[1].metrics.score) + ' pts' : '';
-        return '<strong>Leading on all three</strong>' + (lead ? '<br><span>' + lead + '</span>' : '');
-      }
-
-      var targets = opps.map(function (k) {
-        return labels[k] + ' \u2264 ' + fmtTarget(k, r.bonus[k].best) + ' (+' + Math.round(r.bonus[k].lost) + ')';
-      }).join(' \u00b7 ');
-      var gain = opps.reduce(function (sum, k) { return sum + r.bonus[k].lost; }, 0);
-      var projected = r.metrics.score + gain;
-
-      var chase;
-      if (idx === 0) {
-        chase = ranked[1] ? 'Leads ' + first(ranked[1]) + ' by ' + Math.round(r.metrics.score - ranked[1].metrics.score) + ' pts' : '';
-      } else {
-        // Highest place the projected score would reach, assuming the others hold still.
-        var reach = idx;
-        while (reach > 0 && projected > ranked[reach - 1].metrics.score) reach--;
-        var above = ranked[idx - 1];
-        chase = reach < idx
-          ? 'Hit both and you take #' + (reach + 1) + ' from ' + first(ranked[reach])
-          : 'Hit both: ~' + Math.round(projected) + ', still ' + Math.round(above.metrics.score - projected) + ' behind ' + first(above);
-      }
-      return '<strong>' + targets + '</strong>' + (chase ? '<br><span>' + chase + '</span>' : '');
+      var worst = null;
+      Object.keys(r.bonus).forEach(function (k) {
+        if (!worst || r.bonus[k].lost > r.bonus[worst].lost) worst = k;
+      });
+      var b = r.bonus[worst];
+      if (b.value <= 0) return '<strong>No ' + labels[worst] + ' data yet</strong>';
+      if (b.lost < 0.5) return '<strong>Leading on all three</strong>';
+      var target = worst === 'com'
+        ? (Math.floor(b.best * 1000) / 10).toFixed(1) + '%'
+        : '$' + Math.floor(b.best).toLocaleString();
+      return '<strong>' + labels[worst] + ' \u2264 ' + target + '</strong> = +' + Math.round(b.lost) + ' pts';
     }
 
     // Gold / silver / bronze medal with a ribbon, drawn inline so it needs no
@@ -2506,13 +2487,42 @@
       var ranked = win.rows.slice().sort(function (a, b) { return b.metrics.score - a.metrics.score; });
       el.innerHTML = ranked.map(function (r, i) {
         var color = colorFor(r.person, data.people);
-        return '<div class="lb-card' + (i === 0 ? ' lb-first' : '') + '" style="--c:' + color + ';' +
+        return '<div class="lb-card lb-clickable' + (i === 0 ? ' lb-first' : '') +
+          (r.person === SELECTED_LEADERBOARD_BUYER ? ' lb-selected' : '') + '" data-buyer="' + r.person + '" style="--c:' + color + ';' +
           (i === 0 ? 'background:' + hexToRgba_(color, 0.05) + ';' : '') + '">' +
           '<div class="lb-top">' + medalSvg_(i + 1) +
           '<div class="lb-who"><div class="lb-name">' + r.person + '</div>' +
-          '<div class="lb-tip">' + leaderboardTip_(r, ranked, i) + '</div></div>' +
+          '<div class="lb-tip">' + leaderboardTip_(r) + '</div></div>' +
           '<div class="lb-score"><strong>' + Math.round(r.metrics.score) + '</strong><span>score</span></div></div></div>';
       }).join('');
+    }
+
+    // One buyer's leaderboard metrics broken out by each of the six accounts.
+    function renderLeaderboardDetail(data, win) {
+      var el = document.getElementById('leaderboardDetail');
+      var row = win.rows.filter(function (r) { return r.person === SELECTED_LEADERBOARD_BUYER; })[0];
+      if (!row) {
+        el.innerHTML = '<p class="lb-hint">Click a media buyer to see their results by account.</p>';
+        return;
+      }
+      var color = colorFor(row.person, data.people);
+      var cols = LEADERBOARD_COLUMNS.filter(function (c) { return c.key !== 'score'; });
+      var html = '<div class="lb-detail-title"><span class="buyer-dot" style="background:' + color + ';"></span>' +
+        row.person + ' by account</div><div class="lb-table-card" style="border-top:none; padding-top:0;">' +
+        '<table class="matrix-table"><thead><tr><th style="text-align:left;">Account</th>' +
+        cols.map(function (c) { return '<th>' + c.label + '</th>'; }).join('') + '</tr></thead><tbody>';
+      data.accounts.forEach(function (account) {
+        var m = row.byAccount[account];
+        var idle = !m || m.fbSpend <= 0;
+        html += '<tr' + (idle ? ' style="color:var(--muted);"' : '') + '><td style="text-align:left; font-weight:600;">' + accountLabel(data, account) + '</td>';
+        cols.forEach(function (col) {
+          if (idle) { html += '<td>\u2014</td>'; return; }
+          var isKey = LEADERBOARD_KEY_METRICS.indexOf(col.key) !== -1;
+          html += '<td style="' + (isKey ? 'font-weight:700; background:' + hexToRgba_(color, 0.12) + ';' : '') + '">' + col.fmt(m[col.key]) + '</td>';
+        });
+        html += '</tr>';
+      });
+      el.innerHTML = html + '</tbody></table></div>';
     }
 
     function renderLeaderboardTable(data) {
@@ -2540,7 +2550,9 @@
 
       rows.forEach(function (r, i) {
         var color = colorFor(r.person, data.people);
-        html += '<tr><td style="text-align:left;">' + (i + 1) + '</td><td style="text-align:left; font-weight:600; white-space:nowrap;">' +
+        html += '<tr class="lb-clickable" data-buyer="' + r.person + '"' +
+          (r.person === SELECTED_LEADERBOARD_BUYER ? ' style="background:var(--bg);"' : '') +
+          '><td style="text-align:left;">' + (i + 1) + '</td><td style="text-align:left; font-weight:600; white-space:nowrap;">' +
           '<span class="buyer-dot" style="background:' + color + ';"></span>' + r.person + '</td>';
         LEADERBOARD_COLUMNS.forEach(function (col) {
           var isKey = LEADERBOARD_KEY_METRICS.indexOf(col.key) !== -1;
@@ -2554,6 +2566,14 @@
       html += '</tbody>';
       table.innerHTML = html;
       bindSortableHeaders_(table, LEADERBOARD_SORT, function () { renderLeaderboardTable(data); });
+      Array.prototype.forEach.call(document.querySelectorAll('#leaderboardPodium [data-buyer], #leaderboardTable tbody tr[data-buyer]'), function (el) {
+        el.onclick = function () {
+          var buyer = el.getAttribute('data-buyer');
+          SELECTED_LEADERBOARD_BUYER = SELECTED_LEADERBOARD_BUYER === buyer ? null : buyer;
+          renderLeaderboardTable(data);
+        };
+      });
+      renderLeaderboardDetail(data, win);
     }
 
     function renderLeaderboard(result) {

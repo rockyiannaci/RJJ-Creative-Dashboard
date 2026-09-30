@@ -911,9 +911,13 @@ function getOverviewLeaderboard() {
   function buildWindow(creativeRows, startDate, endDate) {
     var rowsByPerson = {};
     var creativeKeysByPerson = {};
+    var rowsByPersonAccount = {};
+    var creativeKeysByPersonAccount = {};
     podConfig.people.forEach(function (p) {
       rowsByPerson[p] = [];
       creativeKeysByPerson[p] = {};
+      rowsByPersonAccount[p] = {};
+      creativeKeysByPersonAccount[p] = {};
     });
 
     // "Creatives" = distinct ads (by cleaned ad name, per account) that
@@ -923,14 +927,29 @@ function getOverviewLeaderboard() {
       if (!attr) return;
       if (!rowsByPerson[attr.person]) return;
       rowsByPerson[attr.person].push(c);
-      if (c.spend > 0) creativeKeysByPerson[attr.person][c.adName + '::' + attr.account] = true;
+      (rowsByPersonAccount[attr.person][attr.account] = rowsByPersonAccount[attr.person][attr.account] || []).push(c);
+      if (c.spend > 0) {
+        creativeKeysByPerson[attr.person][c.adName + '::' + attr.account] = true;
+        (creativeKeysByPersonAccount[attr.person][attr.account] = creativeKeysByPersonAccount[attr.person][attr.account] || {})[c.adName] = true;
+      }
     });
 
     return {
       start: startDate,
       end: endDate,
       rows: podConfig.people.map(function (person) {
-        return { person: person, metrics: pack(rowsByPerson[person], Object.keys(creativeKeysByPerson[person]).length) };
+        var byAccount = {};
+        podConfig.accounts.forEach(function (account) {
+          byAccount[account] = pack(
+            rowsByPersonAccount[person][account] || [],
+            Object.keys(creativeKeysByPersonAccount[person][account] || {}).length
+          );
+        });
+        return {
+          person: person,
+          metrics: pack(rowsByPerson[person], Object.keys(creativeKeysByPerson[person]).length),
+          byAccount: byAccount
+        };
       })
     };
   }
@@ -941,6 +960,8 @@ function getOverviewLeaderboard() {
   return {
     configured: true,
     people: podConfig.people,
+    accounts: podConfig.accounts,
+    accountDisplayNames: podConfig.accountDisplayNames || {},
     since: buildWindow(readCreativePerformanceRows_(), CREATIVE_SYNC_START_DATE, formatDayOffset_(0)),
     matured: windowStart && windowEnd
       ? buildWindow(readCreativeWindowRows_(), windowStart, windowEnd)
