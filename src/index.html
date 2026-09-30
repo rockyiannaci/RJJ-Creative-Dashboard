@@ -2690,8 +2690,8 @@
       label.textContent = shortDay_(win.start) + ' \u2013 ' + shortDay_(win.end) +
         (SELECTED_LEADERBOARD_WINDOW === 'matured' ? ' (42\u201314 days ago)' : '') +
         ' \u00b7 ' + (LEADERBOARD_BONUS_BLEND > 0 && data.bonusTargets && Object.keys(data.bonusTargets).length
-          ? 'Score = ' + Math.round((1 - LEADERBOARD_BONUS_BLEND) * 100) + '% efficiency (CPL 35 / CPSet 45 / COM 20) + ' + Math.round(LEADERBOARD_BONUS_BLEND * 100) + '% bonus targets hit'
-          : 'Score = CPL 35% + CPSet 45% + COM 20%');
+          ? 'Score = ' + Math.round((1 - LEADERBOARD_BONUS_BLEND) * 100) + '% efficiency + ' + Math.round(LEADERBOARD_BONUS_BLEND * 100) + '% bonus targets hit'
+          : 'Score = efficiency vs the pod on each account (CPL 35 / CPSet 45 / COM 20)');
 
       renderLeaderboardPodium(data, win);
       var rows = sortByMetric_(win.rows, LEADERBOARD_SORT);
