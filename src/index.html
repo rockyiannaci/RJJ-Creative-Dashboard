@@ -2520,12 +2520,13 @@
       var cols = LEADERBOARD_COLUMNS.filter(function (c) { return c.key !== 'score'; });
       var html = '<div class="lb-detail-title"><span class="buyer-dot" style="background:' + color + ';"></span>' +
         row.person + ' by account</div><div class="lb-table-card" style="border-top:none; padding-top:0;">' +
-        '<table class="matrix-table"><thead><tr><th style="text-align:left;">Account</th>' +
+        '<table class="matrix-table"><thead><tr><th style="text-align:left;">Account</th><th>Weight</th>' +
         cols.map(function (c) { return '<th>' + c.label + '</th>'; }).join('') + '</tr></thead><tbody>';
       data.accounts.forEach(function (account) {
         var m = row.byAccount[account];
         var idle = !m || m.fbSpend <= 0;
-        html += '<tr' + (idle ? ' style="color:var(--muted);"' : '') + '><td style="text-align:left; font-weight:600;">' + accountLabel(data, account) + '</td>';
+        html += '<tr' + (idle ? ' style="color:var(--muted);"' : '') + '><td style="text-align:left; font-weight:600;">' + accountLabel(data, account) + '</td>' +
+          '<td>' + Math.round(((win.weights || {})[account] || 0) * 100) + '%</td>';
         cols.forEach(function (col) {
           if (idle) { html += '<td>\u2014</td>'; return; }
           var isKey = LEADERBOARD_KEY_METRICS.indexOf(col.key) !== -1;
@@ -2551,7 +2552,7 @@
 
       label.textContent = shortDay_(win.start) + ' \u2013 ' + shortDay_(win.end) +
         (SELECTED_LEADERBOARD_WINDOW === 'matured' ? ' (42\u201314 days ago)' : '') +
-        ' \u00b7 Score = CPL 35% + CPSet 45% + COM 20%';
+        ' \u00b7 Score = CPL 35% + CPSet 45% + COM 20% \u00b7 averaged by account spend';
 
       if (!win.scored) scoreLeaderboard_(win);
       renderLeaderboardPodium(data, win);

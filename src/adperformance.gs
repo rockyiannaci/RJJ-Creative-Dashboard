@@ -936,7 +936,44 @@ function getOverviewLeaderboard() {
     };
   }
 
+  // Account priority: each account's share of the pod's total spend in the
+  // window, identical for every buyer. Refloor (~$1M of ~$1.4M a month)
+  // therefore dominates a buyer's average, and RBA QC barely moves it.
+  function accountWeightsFor(creativeRows) {
+    var spendByAccount = {};
+    var total = 0;
+    creativeRows.forEach(function (c) {
+      var account = reverseClientNameMap[c.clientName];
+      if (!account) return;
+      spendByAccount[account] = (spendByAccount[account] || 0) + c.spend;
+      total += c.spend;
+    });
+    var weights = {};
+    podConfig.accounts.forEach(function (account) {
+      weights[account] = total > 0 ? (spendByAccount[account] || 0) / total : 0;
+    });
+    return weights;
+  }
+
+  // Weighted average of a per-account ratio (CPL, CPSet, CPD, COM), using
+  // only the accounts where the buyer actually has that number. Weights are
+  // renormalized over those accounts, so a buyer isn't penalized for an
+  // account they don't run.
+  function weightedAverage(byAccount, weights, key) {
+    var num = 0;
+    var den = 0;
+    podConfig.accounts.forEach(function (account) {
+      var v = byAccount[account][key];
+      if (v > 0 && weights[account] > 0) {
+        num += weights[account] * v;
+        den += weights[account];
+      }
+    });
+    return den > 0 ? num / den : 0;
+  }
+
   function buildWindow(creativeRows, startDate, endDate) {
+    var weights = accountWeightsFor(creativeRows);
     var rowsByPerson = {};
     var creativeKeysByPerson = {};
     var rowsByPersonAccount = {};
@@ -973,12 +1010,15 @@ function getOverviewLeaderboard() {
             Object.keys(creativeKeysByPersonAccount[person][account] || {}).length
           );
         });
-        return {
-          person: person,
-          metrics: pack(rowsByPerson[person], Object.keys(creativeKeysByPerson[person]).length),
-          byAccount: byAccount
-        };
-      })
+        var metrics = pack(rowsByPerson[person], Object.keys(creativeKeysByPerson[person]).length);
+        // Spend, revenue and creative counts stay real totals; the cost
+        // ratios become account-priority-weighted averages.
+        ['cpl', 'cpSet', 'cpd', 'com'].forEach(function (key) {
+          metrics[key] = weightedAverage(byAccount, weights, key);
+        });
+        return { person: person, metrics: metrics, byAccount: byAccount };
+      }),
+      weights: weights
     };
   }
 
