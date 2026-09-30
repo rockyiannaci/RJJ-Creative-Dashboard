@@ -11,7 +11,7 @@ var POD_CONFIGS = {
   B3: {
     key: 'B3',
     label: 'B3 (RJJ)',
-    dashboardTitle: 'RJJ Creative Brief Dashboard',
+    dashboardTitle: 'RJJ Creative Dashboard',
     asanaProjectGid: '1202836664104107', // CDM: Creative Requests
     people: [
       'Julian DiVito',

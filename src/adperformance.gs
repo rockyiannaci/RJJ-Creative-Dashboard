@@ -398,6 +398,7 @@ function syncCreativePerformanceData() {
 }
 
 var CREATIVE_WINDOW_SHEET_NAME = 'CreativeWindow';
+var CREATIVE_WINDOW_KEY = 'w4214';
 // Leads from 42 days ago through 14 days ago: old enough that the 14-day
 // lead-to-set and 42-day lead-to-sold cycles have mostly played out.
 var MATURED_WINDOW_START_DAYS_BACK = 42;
@@ -743,8 +744,7 @@ function getCreativePerformanceData() {
   // Brief-level rows for the "top revenue creatives" breakdown and each
   // media buyer's expandable detail table. Filtering/sorting/ranking by
   // month happens client-side against this flat list.
-  var creatives = matchedRows.map(function (c, i) {
-    var attr = allAttrs[i];
+  function buildCreativeEntry(c, attr, month) {
     return {
       crtvCode: c.crtvCode || null,
       creativeName: c.adName || attr.briefName,
@@ -752,7 +752,7 @@ function getCreativePerformanceData() {
       briefName: attr.briefName,
       creativeType: attr.creativeType,
       person: attr.person,
-      month: c.month,
+      month: month,
       // Raw totals alongside the pre-computed ratios: the dashboard's "All
       // Time" and "Top 25" views combine the same creative across several
       // months, and ratios (CPL, COM, ...) can't just be averaged — they
@@ -774,7 +774,34 @@ function getCreativePerformanceData() {
         revenue: c.revenue
       })
     };
+  }
+
+  var creatives = matchedRows.map(function (c, i) {
+    return buildCreativeEntry(c, allAttrs[i], c.month);
   });
+
+  // The rolling 42-to-14-days-ago window lives in its own sheet (it can't be
+  // built from month buckets). Its rows ride along in the same lists under a
+  // reserved key; the dashboard keeps them out of "All Time" by that key.
+  var props = PropertiesService.getScriptProperties();
+  var windowStart = props.getProperty('CREATIVE_WINDOW_START');
+  var windowEnd = props.getProperty('CREATIVE_WINDOW_END');
+  var windowInfo = null;
+  if (windowStart && windowEnd) {
+    var windowRows = [];
+    var windowAttrs = [];
+    readCreativeWindowRows_().forEach(function (c) {
+      var attr = attributeCreativeRow_(c, briefByCode, reverseClientNameMap, podConfig);
+      if (!attr) return;
+      windowRows.push(c);
+      windowAttrs.push(attr);
+    });
+    totalsByMonth[CREATIVE_WINDOW_KEY] = totalsForRows(windowRows, windowAttrs);
+    windowRows.forEach(function (c, i) {
+      creatives.push(buildCreativeEntry(c, windowAttrs[i], CREATIVE_WINDOW_KEY));
+    });
+    windowInfo = { key: CREATIVE_WINDOW_KEY, start: windowStart, end: windowEnd };
+  }
 
   return {
     configured: true,
@@ -784,7 +811,8 @@ function getCreativePerformanceData() {
     accountDisplayNames: podConfig.accountDisplayNames || {},
     creatives: creatives,
     months: months,
-    totalsByMonth: totalsByMonth
+    totalsByMonth: totalsByMonth,
+    window: windowInfo
   };
 }
 

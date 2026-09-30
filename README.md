@@ -1,4 +1,4 @@
-# RJJ Creative Brief Dashboard (Pod B3)
+# RJJ Creative Dashboard (Pod B3)
 
 Asana-backed dashboard for Pod B3 ("RJJ" — Rocky Iannaci, Julian DiVito, Jay
 Jeong), comparing weekly creative brief volume by account and creative type.

@@ -1780,6 +1780,13 @@
     // ---------- Creative Performance (CRTV-code-matched brief results) ----------
     var CREATIVE_PERF_DATA = null;
     var SELECTED_CREATIVE_MONTH = 'all';
+    var CREATIVE_WINDOW_KEY = 'w4214';
+
+    // Rows for the chosen period. "All Time" is the month rows only; the
+    // 42-14 window's rows are tagged with their own key and stay out of it.
+    function inCreativePeriod_(c, month) {
+      return month === 'all' ? c.month !== CREATIVE_WINDOW_KEY : c.month === month;
+    }
     var SELECTED_CREATIVE_BUYER = null;
     var CREATIVE_PERF_KEY_METRICS = ['cpl', 'cpSet', 'cpd', 'com'];
     var CREATIVE_TOP_KEY_METRICS = ['cpl', 'cpSet', 'cpd', 'revenue', 'com'];
@@ -1860,6 +1867,7 @@
     // "2026-04" -> "Apr 2026"
     function creativeMonthLabel_(month) {
       if (month === 'all') return 'All Time';
+      if (month === CREATIVE_WINDOW_KEY) return '42\u201314';
       var parts = month.split('-');
       var d = new Date(Number(parts[0]), Number(parts[1]) - 1, 1);
       return d.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
@@ -1875,7 +1883,7 @@
     function renderCreativePerfTabs(data) {
       var container = document.getElementById('creativePerfTabs');
       container.innerHTML = '';
-      var options = ['all'].concat(data.months);
+      var options = ['all'].concat(data.window ? [CREATIVE_WINDOW_KEY] : [], data.months);
       options.forEach(function (month) {
         var btn = document.createElement('button');
         btn.className = 'week-tab-btn' + (month === SELECTED_CREATIVE_MONTH ? ' active' : '');
@@ -2000,7 +2008,7 @@
       }
       var person = SELECTED_CREATIVE_BUYER;
       var rows = aggregateCreatives_(data.creatives.filter(function (c) {
-        return c.person === person && (month === 'all' || c.month === month);
+        return c.person === person && inCreativePeriod_(c, month);
       })).sort(function (a, b) {
         return b.metrics.revenue - a.metrics.revenue;
       });
@@ -2092,10 +2100,12 @@
     function renderCreativePerfTopTable(data, month) {
       document.getElementById('creativePerfTopMonthLabel').textContent = creativeMonthLabel_(month);
       document.getElementById('creativePerfTopAllTimeNote').textContent =
-        month === 'all' ? ' *data since June 2026' : '';
+        month === 'all' ? ' *data since June 2026'
+          : month === CREATIVE_WINDOW_KEY ? ' *' + shortDay_(CREATIVE_PERF_DATA.window.start) + ' \u2013 ' + shortDay_(CREATIVE_PERF_DATA.window.end) + ' (42\u201314 days ago)'
+          : '';
       var table = document.getElementById('creativePerfTopTable');
       var filtered = aggregateCreatives_(data.creatives.filter(function (c) {
-        return (month === 'all' || c.month === month) &&
+        return inCreativePeriod_(c, month) &&
           (SELECTED_TOP_BUYER === 'all' || c.person === SELECTED_TOP_BUYER) &&
           (SELECTED_TOP_ACCOUNT === 'all' || c.account === SELECTED_TOP_ACCOUNT);
       }));
@@ -2210,7 +2220,8 @@
         : 'Not synced yet';
 
       CREATIVE_PERF_DATA = result;
-      if (SELECTED_CREATIVE_MONTH !== 'all' && result.months.indexOf(SELECTED_CREATIVE_MONTH) === -1) {
+      if (SELECTED_CREATIVE_MONTH !== 'all' && result.months.indexOf(SELECTED_CREATIVE_MONTH) === -1 &&
+          !(SELECTED_CREATIVE_MONTH === CREATIVE_WINDOW_KEY && result.window)) {
         SELECTED_CREATIVE_MONTH = 'all';
       }
       renderCreativePerfTabs(result);
