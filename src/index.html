@@ -329,21 +329,23 @@
     .lb-score span { font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); }
     .lb-tip { font-size: 12px; color: var(--muted); margin-top: 3px; line-height: 1.45; }
     .lb-tip strong { color: var(--text); font-weight: 600; }
-    .bt-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+    .bt-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; align-items: start; }
     @media (max-width: 900px) { .bt-grid { grid-template-columns: 1fr; } }
-    .bt-card { border: 1px solid var(--border); border-radius: 12px; padding: 12px; overflow-x: auto; }
+    .bt-card { border: 1px solid var(--border); border-radius: 12px; padding: 10px 12px; overflow-x: auto; background: #fff; }
+    .bt-card.bt-all { border-color: var(--text); }
     .bt-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 6px; }
     .bt-name { font-weight: 700; font-size: 14px; }
     .bt-count { font-size: 12px; color: var(--muted); }
-    .bt-card table { width: 100%; border-collapse: collapse; font-size: 12px; }
-    .bt-card th { font-weight: 600; color: var(--muted); text-transform: uppercase; font-size: 10px; padding: 4px; text-align: right; }
-    .bt-card td { padding: 4px; text-align: right; border-top: 1px solid var(--border); }
-    .bt-card th:first-child, .bt-card td:first-child { text-align: left; }
+    .bt-card table { width: 100%; border-collapse: separate; border-spacing: 4px 3px; font-size: 12px; table-layout: fixed; }
+    .bt-card th { font-weight: 600; color: var(--muted); text-transform: uppercase; font-size: 10px; padding: 2px 4px; text-align: center; }
+    .bt-card td { padding: 4px 6px; text-align: center; border-radius: 6px; background: var(--bg); line-height: 1.25; }
+    .bt-card th:first-child, .bt-card td:first-child { text-align: left; width: 22%; background: none; padding-left: 2px; }
     .bt-tgt { display: block; font-size: 10px; color: var(--muted); font-weight: 400; }
     .bt-table td { vertical-align: middle; }
     .bt-hit { background: #16a34a; color: #fff; font-weight: 700; }
     .bt-hit .bt-tgt { color: rgba(255,255,255,0.85); }
     .bt-miss { color: var(--text); }
+    .bt-card td.bt-hit { background: #16a34a; color: #fff; font-weight: 700; }
     .lb-hint { margin: 12px 0 0; font-size: 12px; color: var(--muted); text-align: center; }
     .lb-detail-title { margin: 18px 0 6px; font-size: 15px; font-weight: 700; color: var(--text); }
     .lb-table-card { overflow-x: auto; border-top: 1px solid var(--border); padding-top: 8px; }
@@ -2517,7 +2519,7 @@
       return '\u2264 ' + metric.fmt(t.target) + ' \u00b7 ' + t.tier + '%';
     }
 
-    function bonusCardHtml_(data, win, title, dotColor, cellFor, subtitle) {
+    function bonusCardHtml_(data, win, title, dotColor, cellFor, subtitle, isAll) {
       var hits = 0, total = 0, num = 0, den = 0, body = '';
       data.accounts.forEach(function (account) {
         if (!(data.bonusTargets || {})[account]) return;
@@ -2536,7 +2538,7 @@
         body += '</tr>';
       });
       var pct = den > 0 ? Math.round((num / den) * 100) : 0;
-      return '<div class="bt-card"><div class="bt-head"><span class="bt-name"><span class="buyer-dot" style="background:' + dotColor + ';"></span>' + title +
+      return '<div class="bt-card' + (isAll ? ' bt-all' : '') + '"><div class="bt-head"><span class="bt-name"><span class="buyer-dot" style="background:' + dotColor + ';"></span>' + title +
         (subtitle ? ' <span class="bt-count">' + subtitle + '</span>' : '') + '</span>' +
         '<span class="bt-count">' + hits + ' / ' + total + ' targets \u00b7 ' + pct + '% weighted</span></div>' +
         '<table><thead><tr><th>Account</th>' + BONUS_METRICS.map(function (m) { return '<th>' + m.label + '</th>'; }).join('') + '</tr></thead><tbody>' +
@@ -2547,16 +2549,14 @@
       var el = document.getElementById('bonusTracker');
       if (!data.bonusTargets || !Object.keys(data.bonusTargets).length) { el.innerHTML = ''; return; }
       var html = '<div class="lb-detail-title">Bonus Target Tracker</div>' +
-        '<p class="lb-sub" style="margin:0 0 10px;">Green = at or under the account target for that metric, with the bonus tier it pays. ' +
-        'Weighted % counts each account by spend and each metric 35/45/20, over the accounts with spend.</p>';
-      if (win.accountTotals) {
-        html += '<div class="bt-grid" style="grid-template-columns:1fr; margin-bottom:12px;">' +
-          bonusCardHtml_(data, win, 'All Accounts', 'var(--text)', function (a) { return win.accountTotals[a]; },
-            'whole-account totals, all media buyers \u00b7 matches the LSR') + '</div>';
-      }
+        '<p class="lb-sub" style="margin:0 0 10px;">Green = target hit, with the bonus tier under each value. Weighted % = spend-weighted, metrics 35/45/20.</p>';
       html += '<div class="bt-grid">';
+      if (win.accountTotals) {
+        html += bonusCardHtml_(data, win, 'All Accounts', 'var(--text)', function (a) { return win.accountTotals[a]; },
+          'matches the LSR', true);
+      }
       win.rows.forEach(function (r) {
-        html += bonusCardHtml_(data, win, r.person, colorFor(r.person, data.people), function (a) { return r.byAccount[a]; }, '');
+        html += bonusCardHtml_(data, win, r.person, colorFor(r.person, data.people), function (a) { return r.byAccount[a]; }, '', false);
       });
       el.innerHTML = html + '</div>';
     }
