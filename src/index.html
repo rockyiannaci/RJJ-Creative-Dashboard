@@ -2495,7 +2495,7 @@
       var cols = LEADERBOARD_COLUMNS.filter(function (c) { return c.key !== 'score'; });
       var html = '<div class="lb-detail-title"><span class="buyer-dot" style="background:' + color + ';"></span>' +
         row.person + ' by account</div><div class="lb-table-card" style="border-top:none; padding-top:0;">' +
-        '<table class="matrix-table"><thead><tr><th style="text-align:left;">Account</th><th>Revenue share</th>' +
+        '<table class="matrix-table"><thead><tr><th style="text-align:left;">Account</th><th>Spend share</th>' +
         cols.map(function (c) { return '<th>' + c.label + '</th>'; }).join('') + '</tr></thead><tbody>';
       data.accounts.forEach(function (account) {
         var m = row.byAccount[account];

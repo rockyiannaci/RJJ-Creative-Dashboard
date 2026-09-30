@@ -936,7 +936,7 @@ function getOverviewLeaderboard() {
     };
   }
 
-  // Account priority: each account's share of the pod's total revenue in the
+  // Account priority: each account's share of the pod's total spend in the
   // window, identical for every buyer. Refloor (~$1M of ~$1.4M a month)
   // therefore dominates a buyer's average, and RBA QC barely moves it.
   function accountWeightsFor(creativeRows) {
@@ -945,8 +945,8 @@ function getOverviewLeaderboard() {
     creativeRows.forEach(function (c) {
       var account = reverseClientNameMap[c.clientName];
       if (!account) return;
-      spendByAccount[account] = (spendByAccount[account] || 0) + c.revenue;
-      total += c.revenue;
+      spendByAccount[account] = (spendByAccount[account] || 0) + c.spend;
+      total += c.spend;
     });
     var weights = {};
     podConfig.accounts.forEach(function (account) {
