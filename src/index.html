@@ -2348,7 +2348,11 @@
     var LEADERBOARD_KEY_METRICS = ['cpl', 'cpSet', 'com'];
     // Share of the Overview score that comes from bonus targets hit (the rest
     // is the CPL/CPSet/COM efficiency score). 0 = efficiency only.
-    var LEADERBOARD_BONUS_BLEND = 0.3;
+    var LEADERBOARD_BONUS_BLEND = 0.2;
+    // How much a buyer's share of an account's spend counts toward their bonus
+    // credit on the Overview: share^0.35, so a small footprint is discounted but
+    // not wiped out (1 = fully proportional, 0 = ignore footprint).
+    var LEADERBOARD_FOOTPRINT_EXPONENT = 0.35;
     var LEADERBOARD_TARGET_TOTAL = 15;
     var LEADERBOARD_COLUMNS = [
       { key: 'score', label: 'Score', fmt: function (v) { return Math.round(v).toString(); } },
@@ -2475,7 +2479,7 @@
     // Refloor can't claim Refloor's bonus), so thin samples barely count.
     // Also finds the best next move: the miss that is closest to target
     // for the most points.
-    function bonusStats_(data, win, cellFor, scaleByShare) {
+    function bonusStats_(data, win, cellFor, scaleByShare, shareExponent) {
       var targetAccounts = data.accounts.filter(function (a) { return (data.bonusTargets || {})[a]; });
       var podTotal = 0;
       targetAccounts.forEach(function (a) { podTotal += (win.weights || {})[a] || 0; });
@@ -2487,7 +2491,7 @@
         if (scaleByShare) {
           var accountSpend = 0;
           win.rows.forEach(function (r) { accountSpend += (r.byAccount[account] || {}).fbSpend || 0; });
-          share = accountSpend > 0 && cell ? cell.fbSpend / accountSpend : 0;
+          share = accountSpend > 0 && cell ? Math.pow(cell.fbSpend / accountSpend, shareExponent || 1) : 0;
         }
         BONUS_METRICS.forEach(function (m) {
           var st = bonusStatus_(data, account, m.key, cell);
@@ -2641,7 +2645,7 @@
       var hasTargets = data.bonusTargets && Object.keys(data.bonusTargets).length;
       var w = hasTargets ? LEADERBOARD_BONUS_BLEND : 0;
       var stats = win.rows.map(function (r) {
-        return bonusStats_(data, win, function (a) { return r.byAccount[a]; }, true);
+        return bonusStats_(data, win, function (a) { return r.byAccount[a]; }, true, LEADERBOARD_FOOTPRINT_EXPONENT);
       });
       var best = Math.max.apply(null, stats.map(function (s) { return s.score; }).concat([0]));
       win.rows.forEach(function (r, i) {
