@@ -2425,31 +2425,6 @@
       });
     }
 
-    // Each bonus cost is scored against the best (lowest) value in the pod:
-    // best / yours, so the leader scores 1.0 and everyone else falls off in
-    // proportion to how much more they pay. Weighted 35/45/20 into 0-100.
-    function scoreLeaderboard_(win) {
-      var keys = Object.keys(LEADERBOARD_BONUS_WEIGHTS);
-      var best = {};
-      keys.forEach(function (k) {
-        var vals = win.rows.map(function (r) { return r.metrics[k]; }).filter(function (v) { return v > 0; });
-        best[k] = vals.length ? Math.min.apply(null, vals) : 0;
-      });
-      win.rows.forEach(function (r) {
-        var total = 0;
-        r.bonus = {};
-        keys.forEach(function (k) {
-          var v = r.metrics[k];
-          var ratio = v > 0 && best[k] > 0 ? best[k] / v : 0;
-          var w = LEADERBOARD_BONUS_WEIGHTS[k];
-          r.bonus[k] = { value: v, best: best[k], ratio: ratio, weight: w, lost: w * (1 - ratio) * 100 };
-          total += w * ratio * 100;
-        });
-        r.metrics.score = total;
-      });
-      win.scored = true;
-    }
-
     // The one metric where the most bonus points are on the table, with the
     // exact number to hit (the pod's best, rounded down so hitting it really
     // matches or beats it). Recomputed from the latest synced data on every
@@ -2458,15 +2433,15 @@
       var labels = { cpl: 'CPL', cpSet: 'CPSet', com: 'COM' };
       var worst = null;
       Object.keys(r.bonus).forEach(function (k) {
-        if (!worst || r.bonus[k].lost > r.bonus[worst].lost) worst = k;
+        if (!worst || r.bonus[k].gain > r.bonus[worst].gain) worst = k;
       });
       var b = r.bonus[worst];
       if (b.value <= 0) return '<strong>No ' + labels[worst] + ' data yet</strong>';
-      if (b.lost < 0.5) return '<strong>Leading on all three</strong>';
+      if (b.gain < 0.5) return '<strong>Leading on all three</strong>';
       var target = worst === 'com'
-        ? (Math.floor(b.best * 1000) / 10).toFixed(1) + '%'
-        : '$' + Math.floor(b.best).toLocaleString();
-      return '<strong>' + labels[worst] + ' \u2264 ' + target + '</strong> = +' + Math.round(b.lost) + ' pts';
+        ? (Math.floor(b.target * 1000) / 10).toFixed(1) + '%'
+        : '$' + Math.floor(b.target).toLocaleString();
+      return '<strong>' + labels[worst] + ' \u2264 ' + target + '</strong> = +' + Math.round(b.gain) + ' pts';
     }
 
     // Gold / silver / bronze medal with a ribbon, drawn inline so it needs no
@@ -2552,9 +2527,8 @@
 
       label.textContent = shortDay_(win.start) + ' \u2013 ' + shortDay_(win.end) +
         (SELECTED_LEADERBOARD_WINDOW === 'matured' ? ' (42\u201314 days ago)' : '') +
-        ' \u00b7 Score = CPL 35% + CPSet 45% + COM 20% \u00b7 averaged by account spend';
+        ' \u00b7 Score = CPL 35% + CPSet 45% + COM 20% \u00b7 each account judged on its own benchmark, weighted by spend';
 
-      if (!win.scored) scoreLeaderboard_(win);
       renderLeaderboardPodium(data, win);
       var rows = sortByMetric_(win.rows, LEADERBOARD_SORT);
       var html = '<thead><tr><th style="text-align:left;">#</th><th style="text-align:left;">Media Buyer</th>' +
