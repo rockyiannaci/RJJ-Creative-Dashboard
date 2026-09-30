@@ -1050,26 +1050,93 @@ function getOverviewLeaderboard() {
 
   var SCORE_WEIGHTS = { cpl: 0.35, cpSet: 0.45, com: 0.2 };
 
-  // Each cost is scored best-in-pod / yours on the buyer's real totals (the
-  // leader scores 1.0), weighted 35/45/20 into 0-100. Totals already lean on
-  // the big accounts, since Refloor is most of every buyer's spend/revenue.
-  function scoreBuyers(rows) {
+  var SCORE_RATIO_CAP = 1.5;
+  var SCORE_FOOTPRINT_EXPONENT = 0.35;
+  var SCORE_COVERAGE_WEIGHT = 0.1;
+  var SCORE_COVERAGE_TARGET_CREATIVES = 5;
+
+  // Mix-adjusted efficiency, so a buyer isn't rewarded or punished for which
+  // accounts they brief. Each buyer is judged on every account against what the
+  // whole pod gets on that same account (pooled CPL / CPSet / COM), so
+  // structurally costly accounts (Leaf Home, RBA, Bath Planet) are compared
+  // with each other and not with Refloor. Accounts count by the pod's spend
+  // priority, discounted (share^0.35) when the buyer runs only a sliver of an
+  // account; ratios are capped so one lucky thin cell can't dominate.
+  // A small coverage term (10%) then credits briefing across all accounts:
+  // half by account priority, half equal, full credit at 5+ active creatives.
+  function scoreBuyers(rows, weights, creativeRows) {
+    var pooled = {};
+    creativeRows.forEach(function (c) {
+      var account = reverseClientNameMap[c.clientName];
+      if (!account) return;
+      (pooled[account] = pooled[account] || []).push(c);
+    });
+    var bench = {};
+    podConfig.accounts.forEach(function (account) {
+      var m = computeCreativeMetrics_(sumCreativeTotals_(pooled[account] || []));
+      bench[account] = { cpl: m.cpl, cpSet: m.cpSet, com: m.com };
+    });
+    var accountSpend = {};
+    podConfig.accounts.forEach(function (account) {
+      accountSpend[account] = rows.reduce(function (sum, r) { return sum + (r.byAccount[account].fbSpend || 0); }, 0);
+    });
+
+    var idx = rows.map(function (r) {
+      var out = {};
+      Object.keys(SCORE_WEIGHTS).forEach(function (k) {
+        var num = 0;
+        var den = 0;
+        podConfig.accounts.forEach(function (account) {
+          var cell = r.byAccount[account];
+          var v = cell[k];
+          var b = bench[account][k];
+          if (!(v > 0) || !(b > 0) || !(cell.fbSpend > 0) || !(weights[account] > 0)) return;
+          var w = weights[account] * Math.pow(cell.fbSpend / accountSpend[account], SCORE_FOOTPRINT_EXPONENT);
+          num += w * Math.min(b / v, SCORE_RATIO_CAP);
+          den += w;
+        });
+        out[k] = den > 0 ? num / den : 0;
+      });
+      return out;
+    });
+    var comps = idx.map(function (ix) {
+      return Object.keys(SCORE_WEIGHTS).reduce(function (sum, k) { return sum + SCORE_WEIGHTS[k] * ix[k]; }, 0);
+    });
+    var maxComp = Math.max.apply(null, comps.concat([0]));
     var best = {};
     Object.keys(SCORE_WEIGHTS).forEach(function (k) {
-      var vals = rows.map(function (r) { return r.metrics[k]; }).filter(function (v) { return v > 0; });
-      best[k] = vals.length ? Math.min.apply(null, vals) : 0;
+      best[k] = Math.max.apply(null, idx.map(function (ix) { return ix[k]; }).concat([0]));
     });
-    rows.forEach(function (r) {
-      var total = 0;
+
+    var n = podConfig.accounts.length;
+    var coverageWeights = {};
+    var coverageTotal = 0;
+    podConfig.accounts.forEach(function (account) {
+      coverageWeights[account] = 0.5 * (weights[account] || 0) + 0.5 / n;
+      coverageTotal += coverageWeights[account];
+    });
+
+    rows.forEach(function (r, i) {
+      var mix = maxComp > 0 ? (100 * comps[i]) / maxComp : 0;
+      var coverage = 0;
+      podConfig.accounts.forEach(function (account) {
+        var creatives = r.byAccount[account].creatives || 0;
+        coverage += coverageWeights[account] * Math.min(1, creatives / SCORE_COVERAGE_TARGET_CREATIVES);
+      });
+      coverage = coverageTotal > 0 ? (100 * coverage) / coverageTotal : 0;
+      r.metrics.mixScore = mix;
+      r.metrics.coverage = coverage;
+      r.metrics.score = (1 - SCORE_COVERAGE_WEIGHT) * mix + SCORE_COVERAGE_WEIGHT * coverage;
       r.bonus = {};
       Object.keys(SCORE_WEIGHTS).forEach(function (k) {
-        var v = r.metrics[k];
-        var ratio = v > 0 && best[k] > 0 ? best[k] / v : 0;
-        var w = SCORE_WEIGHTS[k];
-        total += w * ratio * 100;
-        r.bonus[k] = { value: v, target: best[k], gain: w * (1 - ratio) * 100 };
+        var value = r.metrics[k];
+        var mine = idx[i][k];
+        var target = mine > 0 && best[k] > 0 ? value * (mine / best[k]) : 0;
+        var gain = maxComp > 0 && mine > 0
+          ? (1 - SCORE_COVERAGE_WEIGHT) * (100 * SCORE_WEIGHTS[k] * (best[k] - mine)) / maxComp
+          : 0;
+        r.bonus[k] = { value: value, target: target, gain: gain };
       });
-      r.metrics.score = total;
     });
   }
 
@@ -1113,7 +1180,7 @@ function getOverviewLeaderboard() {
         var metrics = pack(rowsByPerson[person], Object.keys(creativeKeysByPerson[person]).length);
         return { person: person, metrics: metrics, byAccount: byAccount };
     });
-    scoreBuyers(scoredRows);
+    scoreBuyers(scoredRows, weights, creativeRows);
     // Whole-account totals straight from BigQuery (Unassigned rows included),
     // i.e. what the LSR shows per client. Falls back to summing the creative
     // rows until the first sync writes the AccountTotals sheet.
