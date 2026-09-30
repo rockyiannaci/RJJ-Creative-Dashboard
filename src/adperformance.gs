@@ -936,7 +936,7 @@ function getOverviewLeaderboard() {
     };
   }
 
-  // Account priority: each account's share of the pod's total spend in the
+  // Account priority: each account's share of the pod's total revenue in the
   // window, identical for every buyer. Refloor (~$1M of ~$1.4M a month)
   // therefore dominates a buyer's average, and RBA QC barely moves it.
   function accountWeightsFor(creativeRows) {
@@ -945,8 +945,8 @@ function getOverviewLeaderboard() {
     creativeRows.forEach(function (c) {
       var account = reverseClientNameMap[c.clientName];
       if (!account) return;
-      spendByAccount[account] = (spendByAccount[account] || 0) + c.spend;
-      total += c.spend;
+      spendByAccount[account] = (spendByAccount[account] || 0) + c.revenue;
+      total += c.revenue;
     });
     var weights = {};
     podConfig.accounts.forEach(function (account) {
@@ -955,83 +955,33 @@ function getOverviewLeaderboard() {
     return weights;
   }
 
-  // Each account is judged against the pod's own pooled numbers on that same
-  // account, so a buyer on structurally costlier accounts (Bath Planet, Leaf
-  // Home, RBA) is compared with what everyone gets there, not with Refloor.
-  function accountBenchmarks(creativeRows) {
-    var rowsByAccount = {};
-    creativeRows.forEach(function (c) {
-      var account = reverseClientNameMap[c.clientName];
-      if (!account) return;
-      (rowsByAccount[account] = rowsByAccount[account] || []).push(c);
-    });
-    var bench = {};
-    podConfig.accounts.forEach(function (account) {
-      var m = computeCreativeMetrics_(sumCreativeTotals_(rowsByAccount[account] || []));
-      bench[account] = { cpl: m.cpl, cpSet: m.cpSet, com: m.com };
-    });
-    return bench;
-  }
-
   var SCORE_WEIGHTS = { cpl: 0.35, cpSet: 0.45, com: 0.2 };
-  var SCORE_MIN_CELL_SPEND = 5000;
-  var SCORE_RATIO_CAP = 1.5;
 
-  // Per-metric index: spend-weighted average of (account benchmark / buyer
-  // value) over the accounts where the buyer has a meaningful sample.
-  function metricIndex(byAccount, weights, bench, key, minSpend) {
-    var num = 0;
-    var den = 0;
-    podConfig.accounts.forEach(function (account) {
-      var cell = byAccount[account];
-      var v = cell[key];
-      var b = bench[account][key];
-      var w = weights[account];
-      if (!(v > 0) || !(b > 0) || !(w > 0) || cell.fbSpend < minSpend) return;
-      num += w * Math.min(b / v, SCORE_RATIO_CAP);
-      den += w;
-    });
-    return den > 0 ? num / den : 0;
-  }
-
-  function scoreBuyers(rows, weights, bench) {
-    function indices(minSpend) {
-      return rows.map(function (r) {
-        return {
-          cpl: metricIndex(r.byAccount, weights, bench, 'cpl', minSpend),
-          cpSet: metricIndex(r.byAccount, weights, bench, 'cpSet', minSpend),
-          com: metricIndex(r.byAccount, weights, bench, 'com', minSpend)
-        };
-      });
-    }
-    var idx = indices(SCORE_MIN_CELL_SPEND);
-    idx.forEach(function (ix, i) {
-      if (!ix.cpl && !ix.cpSet && !ix.com) idx[i] = indices(0)[i];
-    });
-    var comps = idx.map(function (ix) {
-      return SCORE_WEIGHTS.cpl * ix.cpl + SCORE_WEIGHTS.cpSet * ix.cpSet + SCORE_WEIGHTS.com * ix.com;
-    });
-    var maxComp = Math.max.apply(null, comps.concat([0]));
+  // Each cost is scored best-in-pod / yours on the buyer's real totals (the
+  // leader scores 1.0), weighted 35/45/20 into 0-100. Totals already lean on
+  // the big accounts, since Refloor is most of every buyer's spend/revenue.
+  function scoreBuyers(rows) {
     var best = {};
     Object.keys(SCORE_WEIGHTS).forEach(function (k) {
-      best[k] = Math.max.apply(null, idx.map(function (ix) { return ix[k]; }).concat([0]));
+      var vals = rows.map(function (r) { return r.metrics[k]; }).filter(function (v) { return v > 0; });
+      best[k] = vals.length ? Math.min.apply(null, vals) : 0;
     });
-    rows.forEach(function (r, i) {
-      r.metrics.score = maxComp > 0 ? (100 * comps[i]) / maxComp : 0;
+    rows.forEach(function (r) {
+      var total = 0;
       r.bonus = {};
       Object.keys(SCORE_WEIGHTS).forEach(function (k) {
-        var value = r.metrics[k];
-        var mine = idx[i][k];
-        var target = mine > 0 && best[k] > 0 ? value * (mine / best[k]) : 0;
-        var gain = maxComp > 0 && mine > 0 ? (100 * SCORE_WEIGHTS[k] * (best[k] - mine)) / maxComp : 0;
-        r.bonus[k] = { value: value, target: target, gain: gain };
+        var v = r.metrics[k];
+        var ratio = v > 0 && best[k] > 0 ? best[k] / v : 0;
+        var w = SCORE_WEIGHTS[k];
+        total += w * ratio * 100;
+        r.bonus[k] = { value: v, target: best[k], gain: w * (1 - ratio) * 100 };
       });
+      r.metrics.score = total;
     });
   }
 
   function buildWindow(creativeRows, startDate, endDate) {
     var weights = accountWeightsFor(creativeRows);
-    var bench = accountBenchmarks(creativeRows);
     var rowsByPerson = {};
     var creativeKeysByPerson = {};
     var rowsByPersonAccount = {};
@@ -1068,7 +1018,7 @@ function getOverviewLeaderboard() {
         var metrics = pack(rowsByPerson[person], Object.keys(creativeKeysByPerson[person]).length);
         return { person: person, metrics: metrics, byAccount: byAccount };
     });
-    scoreBuyers(scoredRows, weights, bench);
+    scoreBuyers(scoredRows);
     return { start: startDate, end: endDate, rows: scoredRows, weights: weights };
   }
 

@@ -2495,7 +2495,7 @@
       var cols = LEADERBOARD_COLUMNS.filter(function (c) { return c.key !== 'score'; });
       var html = '<div class="lb-detail-title"><span class="buyer-dot" style="background:' + color + ';"></span>' +
         row.person + ' by account</div><div class="lb-table-card" style="border-top:none; padding-top:0;">' +
-        '<table class="matrix-table"><thead><tr><th style="text-align:left;">Account</th><th>Weight</th>' +
+        '<table class="matrix-table"><thead><tr><th style="text-align:left;">Account</th><th>Revenue share</th>' +
         cols.map(function (c) { return '<th>' + c.label + '</th>'; }).join('') + '</tr></thead><tbody>';
       data.accounts.forEach(function (account) {
         var m = row.byAccount[account];
@@ -2527,7 +2527,7 @@
 
       label.textContent = shortDay_(win.start) + ' \u2013 ' + shortDay_(win.end) +
         (SELECTED_LEADERBOARD_WINDOW === 'matured' ? ' (42\u201314 days ago)' : '') +
-        ' \u00b7 Score = CPL 35% + CPSet 45% + COM 20% \u00b7 each account judged on its own benchmark, weighted by spend';
+        ' \u00b7 Score = CPL 35% + CPSet 45% + COM 20% \u00b7 best-in-pod ratio on real totals';
 
       renderLeaderboardPodium(data, win);
       var rows = sortByMetric_(win.rows, LEADERBOARD_SORT);
