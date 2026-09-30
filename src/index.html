@@ -2452,8 +2452,8 @@
       }).join('');
     }
 
-    // Within 5% over target counts as "close" (yellow).
-    var BONUS_NEAR_RATIO = 1.05;
+    // Within 15% over target counts as "close" (yellow).
+    var BONUS_NEAR_RATIO = 1.15;
     var BONUS_METRICS = [
       { key: 'cpl', label: 'CPL', fmt: fmtMoney_ },
       { key: 'cpSet', label: 'CPSet', fmt: fmtMoney_ },
@@ -2544,7 +2544,7 @@
         (body || '<tr><td colspan="' + (isAll ? 5 : 4) + '" style="color:var(--muted);">No bonus-account spend in this window.</td></tr>') + '</tbody></table></div>';
     }
 
-    var BONUS_LEGEND = 'Green = target hit \u00b7 Yellow = within 5% of target \u00b7 tier shown under each value. Bonus pool % = share of the total bonus earned (accounts by spend, metrics 35/45/20; a buyer\u2019s hits count in proportion to their share of that account\u2019s spend).';
+    var BONUS_LEGEND = 'Green = target hit \u00b7 Yellow = within 15% of target \u00b7 tier shown under each value. Bonus pool % = share of the total bonus earned (accounts by spend, metrics 35/45/20; a buyer\u2019s hits count in proportion to their share of that account\u2019s spend).';
 
     function renderBonusLeaderboard(data, win) {
       var el = document.getElementById('bonusLeaderboard');
@@ -2581,7 +2581,7 @@
         : '';
 
       overview.innerHTML = '<div class="lb-title">Bonus Target Tracker</div>' +
-        '<p class="lb-sub" style="margin:6px 0 14px;">Green = target hit \u00b7 Yellow = within 5% of target \u00b7 tier shown under each value. <a href="#" id="bonusOpenTab">By media buyer \u2192</a></p>' + allCard;
+        '<p class="lb-sub" style="margin:6px 0 14px;">Green = target hit \u00b7 Yellow = within 15% of target \u00b7 tier shown under each value. <a href="#" id="bonusOpenTab">By media buyer \u2192</a></p>' + allCard;
       var link = document.getElementById('bonusOpenTab');
       if (link) link.onclick = function (e) { e.preventDefault(); navigateToSection('bonus'); };
 
