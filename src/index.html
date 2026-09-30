@@ -348,15 +348,6 @@
     .bt-hit { background: rgba(34, 197, 94, 0.24); color: var(--text); font-weight: 700; }
     .bt-card td.bt-near { background: rgba(250, 204, 21, 0.28); color: var(--text); font-weight: 700; }
     .bt-card td.bt-hit { background: rgba(34, 197, 94, 0.24); color: var(--text); font-weight: 700; }
-    #bonusOpenTab { color: var(--accent); font-weight: 600; text-decoration: none; }
-    .bt-big .bt-card { padding: 10px 14px; }
-    .bt-big .bt-card table { font-size: 13px; border-spacing: 4px 3px; }
-    .bt-big .bt-card td { padding: 5px 8px; }
-    .bt-big .bt-card th { font-size: 11px; }
-    .bt-big .bt-tgt { font-size: 10px; }
-    .bt-big .bt-name { font-size: 15px; }
-    .bt-big .bt-count { font-size: 12px; }
-    #bonusTracker .lb-sub { font-size: 13px; max-width: none; white-space: nowrap; overflow-x: auto; }
     .lb-hint { margin: 12px 0 0; font-size: 12px; color: var(--muted); text-align: center; }
     .lb-detail-title { margin: 18px 0 6px; font-size: 15px; font-weight: 700; color: var(--text); }
     .lb-table-card { overflow-x: auto; border-top: 1px solid var(--border); padding-top: 8px; }
@@ -532,10 +523,6 @@
             <table class="matrix-table" id="leaderboardTable"></table>
           </div>
           <div id="leaderboardDetail"></div>
-        </div>
-
-        <div class="lb-hero" style="margin-top:16px;">
-          <div id="bonusTracker" class="bt-big"></div>
         </div>
 
         <div class="detail-section">
@@ -2571,23 +2558,17 @@
     }
 
     function renderBonusTracker(data, win) {
-      var overview = document.getElementById('bonusTracker');
       var full = document.getElementById('bonusTrackerFull');
       var board = document.getElementById('bonusLeaderboard');
       var tabs = document.getElementById('bonusTabs');
       var label = document.getElementById('bonusRangeLabel');
       if (!data.bonusTargets || !Object.keys(data.bonusTargets).length) {
-        overview.innerHTML = ''; full.innerHTML = ''; board.innerHTML = ''; tabs.innerHTML = ''; label.textContent = '';
+        full.innerHTML = ''; board.innerHTML = ''; tabs.innerHTML = ''; label.textContent = '';
         return;
       }
       var allCard = win.accountTotals
         ? bonusCardHtml_(data, win, 'All Accounts', 'var(--text)', function (a) { return win.accountTotals[a]; }, '', true)
         : '';
-
-      overview.innerHTML = '<div class="lb-title">Bonus Target Tracker</div>' +
-        '<p class="lb-sub" style="margin:6px 0 14px;">Green = target hit \u00b7 Yellow = within 15% of target \u00b7 tier shown under each value. <a href="#" id="bonusOpenTab">By media buyer \u2192</a></p>' + allCard;
-      var link = document.getElementById('bonusOpenTab');
-      if (link) link.onclick = function (e) { e.preventDefault(); navigateToSection('bonus'); };
 
       label.textContent = shortDay_(win.start) + ' \u2013 ' + shortDay_(win.end) +
         (SELECTED_LEADERBOARD_WINDOW === 'matured' ? ' (42\u201314 days ago)' : '') + ' \u00b7 ' + BONUS_LEGEND;
