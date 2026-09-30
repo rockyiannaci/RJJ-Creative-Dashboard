@@ -723,6 +723,19 @@
         </div>
       </div>
 
+      <div class="page-section" id="page-bonus">
+        <div class="card">
+          <div class="lb-head">
+            <div>
+              <div class="lb-title">Bonus Target Tracker</div>
+              <p class="lb-sub" id="bonusRangeLabel"></p>
+            </div>
+            <div class="lb-tabs" id="bonusTabs"></div>
+          </div>
+          <div id="bonusTrackerFull"></div>
+        </div>
+      </div>
+
       <div class="page-section" id="page-creativeperf">
         <div id="creativePerfNotConfigured" style="display:none;">
           <div class="card">
@@ -862,7 +875,8 @@
       { id: 'clientdetail', label: 'Client Detail' },
       { id: 'matrix', label: 'Weekly & Monthly Matrix' },
       { id: 'comparison', label: 'Performance Comparison' },
-      { id: 'creativeperf', label: 'Creative Performance' }
+      { id: 'creativeperf', label: 'Creative Performance' },
+      { id: 'bonus', label: 'Bonus Target Tracker' }
     ];
     var ACTIVE_SECTION = 'overview';
 
@@ -2548,20 +2562,47 @@
         (body || '<tr><td colspan="4" style="color:var(--muted);">No bonus-account spend in this window.</td></tr>') + '</tbody></table></div>';
     }
 
+    var BONUS_LEGEND = 'Green = target hit \u00b7 Yellow = within 5% of target \u00b7 tier shown under each value. Weighted % = spend-weighted, metrics 35/45/20.';
+
     function renderBonusTracker(data, win) {
-      var el = document.getElementById('bonusTracker');
-      if (!data.bonusTargets || !Object.keys(data.bonusTargets).length) { el.innerHTML = ''; return; }
-      var html = '<div class="lb-detail-title">Bonus Target Tracker</div>' +
-        '<p class="lb-sub" style="margin:0 0 10px;">Green = target hit \u00b7 Yellow = within 5% of target \u00b7 tier shown under each value. Weighted % = spend-weighted, metrics 35/45/20.</p>';
-      if (win.accountTotals) {
-        html += '<div style="margin-bottom:12px;">' + bonusCardHtml_(data, win, 'All Accounts', 'var(--text)', function (a) { return win.accountTotals[a]; },
-          'matches the LSR', true) + '</div>';
+      var overview = document.getElementById('bonusTracker');
+      var full = document.getElementById('bonusTrackerFull');
+      var tabs = document.getElementById('bonusTabs');
+      var label = document.getElementById('bonusRangeLabel');
+      if (!data.bonusTargets || !Object.keys(data.bonusTargets).length) {
+        overview.innerHTML = ''; full.innerHTML = ''; tabs.innerHTML = ''; label.textContent = '';
+        return;
       }
-      html += '<div class="bt-grid">';
+      var allCard = win.accountTotals
+        ? bonusCardHtml_(data, win, 'All Accounts', 'var(--text)', function (a) { return win.accountTotals[a]; }, 'matches the LSR', true)
+        : '';
+
+      overview.innerHTML = '<div class="lb-detail-title">Bonus Target Tracker</div>' +
+        '<p class="lb-sub" style="margin:0 0 10px;">' + BONUS_LEGEND + ' <a href="#" id="bonusOpenTab">By media buyer \u2192</a></p>' + allCard;
+      var link = document.getElementById('bonusOpenTab');
+      if (link) link.onclick = function (e) { e.preventDefault(); navigateToSection('bonus'); };
+
+      label.textContent = shortDay_(win.start) + ' \u2013 ' + shortDay_(win.end) +
+        (SELECTED_LEADERBOARD_WINDOW === 'matured' ? ' (42\u201314 days ago)' : '') + ' \u00b7 ' + BONUS_LEGEND;
+      tabs.innerHTML = '';
+      [{ key: 'matured', label: '42\u201314' }, { key: 'since', label: 'Since June 2026' }].forEach(function (opt) {
+        if (opt.key === 'matured' && !data.matured) return;
+        var btn = document.createElement('button');
+        btn.className = 'lb-tab' + (opt.key === SELECTED_LEADERBOARD_WINDOW ? ' active' : '');
+        btn.textContent = opt.label;
+        btn.onclick = function () {
+          SELECTED_LEADERBOARD_WINDOW = opt.key;
+          renderLeaderboardTabs(data);
+          renderLeaderboardTable(data);
+        };
+        tabs.appendChild(btn);
+      });
+
+      var html = '<div style="margin:12px 0;">' + allCard + '</div><div class="bt-grid">';
       win.rows.forEach(function (r) {
         html += bonusCardHtml_(data, win, r.person, colorFor(r.person, data.people), function (a) { return r.byAccount[a]; }, '', false);
       });
-      el.innerHTML = html + '</div>';
+      full.innerHTML = html + '</div>';
     }
 
     // One buyer's leaderboard metrics broken out by each of the six accounts.
