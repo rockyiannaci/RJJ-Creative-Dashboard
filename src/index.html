@@ -340,6 +340,7 @@
     .bt-card td { padding: 4px; text-align: right; border-top: 1px solid var(--border); }
     .bt-card th:first-child, .bt-card td:first-child { text-align: left; }
     .bt-tgt { display: block; font-size: 10px; color: var(--muted); font-weight: 400; }
+    .bt-table td { vertical-align: middle; }
     .bt-hit { background: rgba(34, 197, 94, 0.18); color: #15803d; font-weight: 700; }
     .bt-miss { color: var(--text); }
     .lb-hint { margin: 12px 0 0; font-size: 12px; color: var(--muted); text-align: center; }
@@ -2517,37 +2518,30 @@
 
     function renderBonusTracker(data, win) {
       var el = document.getElementById('bonusTracker');
-      if (!data.bonusTargets || !Object.keys(data.bonusTargets).length) { el.innerHTML = ''; return; }
-      var html = '<div class="lb-detail-title">Bonus Target Tracker</div>' +
-        '<p class="lb-sub" style="margin:0 0 10px;">Green = hitting the account target for that metric (\u2264 target, with the bonus tier it pays). ' +
-        'Progress weights each account by spend and each metric 35/45/20, over the accounts the buyer runs.</p><div class="bt-grid">';
-      win.rows.forEach(function (r) {
-        var color = colorFor(r.person, data.people);
-        var hits = 0, total = 0, num = 0, den = 0;
-        var body = '';
-        data.accounts.forEach(function (account) {
-          var cell = r.byAccount[account];
-          if (!cell || !(cell.fbSpend > 0)) return;
-          if (!(data.bonusTargets || {})[account]) return;
-          var w = (win.weights || {})[account] || 0;
-          body += '<tr><td style="font-weight:600;">' + accountLabel(data, account) + '</td>';
-          BONUS_METRICS.forEach(function (m) {
-            var st = bonusStatus_(data, account, m.key, cell);
-            if (!st.live) { body += '<td>\u2014' + (st.target ? '<span class="bt-tgt">' + bonusTargetText_(m, st.target) + '</span>' : '') + '</td>'; return; }
-            total++; den += w * LEADERBOARD_BONUS_WEIGHTS[m.key];
-            if (st.hit) { hits++; num += w * LEADERBOARD_BONUS_WEIGHTS[m.key]; }
-            body += '<td class="' + (st.hit ? 'bt-hit' : 'bt-miss') + '">' + (st.hit ? '\u2713 ' : '') + m.fmt(cell[m.key]) +
-              '<span class="bt-tgt">' + bonusTargetText_(m, st.target) + '</span></td>';
-          });
-          body += '</tr>';
+      if (!data.bonusTargets || !Object.keys(data.bonusTargets).length || !win.accountTotals) { el.innerHTML = ''; return; }
+      var hits = 0, total = 0, num = 0, den = 0, body = '';
+      data.accounts.forEach(function (account) {
+        var cell = win.accountTotals[account];
+        if (!(data.bonusTargets || {})[account]) return;
+        var w = (win.weights || {})[account] || 0;
+        body += '<tr><td style="font-weight:600;">' + accountLabel(data, account) + '</td><td>' + Math.round(w * 100) + '%</td>' +
+          '<td>' + (cell ? fmtMoney_(cell.fbSpend) : '\u2014') + '</td>';
+        BONUS_METRICS.forEach(function (m) {
+          var st = bonusStatus_(data, account, m.key, cell);
+          if (!st.live) { body += '<td>\u2014</td>'; return; }
+          total++; den += w * LEADERBOARD_BONUS_WEIGHTS[m.key];
+          if (st.hit) { hits++; num += w * LEADERBOARD_BONUS_WEIGHTS[m.key]; }
+          body += '<td class="' + (st.hit ? 'bt-hit' : 'bt-miss') + '">' + (st.hit ? '\u2713 ' : '') + m.fmt(cell[m.key]) +
+            '<span class="bt-tgt">' + bonusTargetText_(m, st.target) + '</span></td>';
         });
-        var pct = den > 0 ? Math.round((num / den) * 100) : 0;
-        html += '<div class="bt-card"><div class="bt-head"><span class="bt-name"><span class="buyer-dot" style="background:' + color + ';"></span>' + r.person + '</span>' +
-          '<span class="bt-count">' + hits + ' / ' + total + ' targets \u00b7 ' + pct + '% weighted</span></div>' +
-          '<table><thead><tr><th>Account</th>' + BONUS_METRICS.map(function (m) { return '<th>' + m.label + '</th>'; }).join('') + '</tr></thead><tbody>' +
-          (body || '<tr><td colspan="4" style="color:var(--muted);">No bonus-account spend in this window.</td></tr>') + '</tbody></table></div>';
+        body += '</tr>';
       });
-      el.innerHTML = html + '</div>';
+      var pct = den > 0 ? Math.round((num / den) * 100) : 0;
+      el.innerHTML = '<div class="lb-detail-title">Bonus Target Tracker</div>' +
+        '<p class="lb-sub" style="margin:0 0 10px;">Whole-account totals (all media buyers, matching the LSR). Green = at or under the account target, with the bonus tier it pays. ' +
+        hits + ' / ' + total + ' targets hit \u00b7 ' + pct + '% spend-weighted (metrics 35/45/20).</p>' +
+        '<div class="lb-table-card" style="border-top:none; padding-top:0;"><table class="matrix-table bt-table"><thead><tr><th style="text-align:left;">Account</th><th>Spend share</th><th>FB Spend</th>' +
+        BONUS_METRICS.map(function (m) { return '<th>' + m.label + '</th>'; }).join('') + '</tr></thead><tbody>' + body + '</tbody></table></div>';
     }
 
     // One buyer's leaderboard metrics broken out by each of the six accounts.

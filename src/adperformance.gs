@@ -1019,7 +1019,18 @@ function getOverviewLeaderboard() {
         return { person: person, metrics: metrics, byAccount: byAccount };
     });
     scoreBuyers(scoredRows);
-    return { start: startDate, end: endDate, rows: scoredRows, weights: weights };
+    // Whole-account totals (every buyer plus unattributed/"Other" ads), i.e.
+    // what the LSR shows per client, for the bonus target tracker.
+    var rowsByAccount = {};
+    creativeRows.forEach(function (c) {
+      var account = reverseClientNameMap[c.clientName];
+      if (account) (rowsByAccount[account] = rowsByAccount[account] || []).push(c);
+    });
+    var accountTotals = {};
+    podConfig.accounts.forEach(function (account) {
+      accountTotals[account] = pack(rowsByAccount[account] || [], 0);
+    });
+    return { start: startDate, end: endDate, rows: scoredRows, weights: weights, accountTotals: accountTotals };
   }
 
   var windowStart = props.getProperty('CREATIVE_WINDOW_START');
