@@ -2528,7 +2528,7 @@
       return '<div class="bt-card' + (isAll ? ' bt-all' : '') + '"><div class="bt-head"><span class="bt-name"><span class="buyer-dot" style="background:' + dotColor + ';"></span>' + title +
         (subtitle ? ' <span class="bt-count">' + subtitle + '</span>' : '') + '</span>' +
         '<span class="bt-count">' + hits + ' / ' + total + ' targets \u00b7 ' + pct + '% of bonus pool</span></div>' +
-        '<table><thead><tr><th>Account</th>' + BONUS_METRICS.map(function (m) { return '<th>' + m.label + '</th>'; }).join('') + '</tr></thead><tbody>' +
+        '<table><thead><tr><th></th>' + BONUS_METRICS.map(function (m) { return '<th>' + m.label + '</th>'; }).join('') + '</tr></thead><tbody>' +
         (body || '<tr><td colspan="4" style="color:var(--muted);">No bonus-account spend in this window.</td></tr>') + '</tbody></table></div>';
     }
 
@@ -2565,7 +2565,7 @@
         return;
       }
       var allCard = win.accountTotals
-        ? bonusCardHtml_(data, win, 'All Accounts', 'var(--text)', function (a) { return win.accountTotals[a]; }, 'matches the LSR', true)
+        ? bonusCardHtml_(data, win, 'All Accounts', 'var(--text)', function (a) { return win.accountTotals[a]; }, '', true)
         : '';
 
       overview.innerHTML = '<div class="lb-detail-title">Bonus Target Tracker</div>' +
