@@ -290,14 +290,6 @@
     }
     .lb-title { font-size: 22px; font-weight: 800; letter-spacing: -0.02em; color: var(--text); }
     .lb-sub { margin: 6px 0 0; font-size: 13px; color: var(--muted); max-width: 640px; }
-    .lb-note {
-      margin: 10px 0 16px;
-      font-size: 13px;
-      color: var(--text);
-      background: rgba(79, 91, 255, 0.07);
-      border-radius: 10px;
-      padding: 9px 12px;
-    }
     .lb-tabs { display: flex; gap: 8px; flex-wrap: wrap; }
     .lb-tab {
       border: 1px solid var(--border);
@@ -315,7 +307,7 @@
       display: grid;
       grid-template-columns: repeat(3, 1fr);
       gap: 14px;
-      margin-bottom: 18px;
+      margin: 14px 0 18px;
     }
     @media (max-width: 900px) { .lb-podium { grid-template-columns: 1fr; } }
     .lb-card {
@@ -323,7 +315,7 @@
       border: 1px solid var(--border);
       border-top: 4px solid var(--c);
       border-radius: 16px;
-      padding: 16px 18px;
+      padding: 14px 16px;
     }
     .lb-card.lb-first { box-shadow: 0 8px 22px rgba(20, 20, 28, 0.10); }
     .lb-top { display: flex; align-items: center; gap: 12px; }
@@ -338,20 +330,10 @@
     .lb-badge-3 { background: #c77d3a; }
     .lb-who { flex: 1 1 auto; min-width: 0; }
     .lb-name { font-size: 16px; font-weight: 700; color: var(--text); }
-    .lb-meta { font-size: 12px; color: var(--muted); margin-top: 2px; }
     .lb-score { text-align: right; flex: 0 0 auto; }
-    .lb-score strong { display: block; font-size: 30px; line-height: 1; font-weight: 800; color: var(--c); }
+    .lb-score strong { display: block; font-size: 34px; line-height: 1; font-weight: 800; color: var(--c); }
     .lb-score span { font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); }
-    .lb-bars { margin-top: 14px; display: grid; gap: 10px; }
-    .lb-bar-head { display: flex; justify-content: space-between; align-items: baseline; font-size: 12px; }
-    .lb-bar-head b { font-size: 14px; color: var(--text); }
-    .lb-bar-label { color: var(--muted); font-weight: 600; }
-    .lb-gap { font-size: 11px; font-weight: 700; margin-left: 8px; }
-    .lb-gap-best { color: #1f9d6b; }
-    .lb-gap-behind { color: #d9480f; }
-    .lb-track { height: 6px; background: var(--bg); border-radius: 999px; margin-top: 4px; overflow: hidden; }
-    .lb-fill { height: 100%; background: var(--c); border-radius: 999px; }
-    .lb-tip { margin-top: 14px; font-size: 12px; color: var(--text); background: var(--bg); border-radius: 10px; padding: 8px 10px; }
+    .lb-tip { font-size: 12px; color: var(--muted); margin-top: 2px; }
     .lb-table-card { overflow-x: auto; border-top: 1px solid var(--border); padding-top: 8px; }
     .buyer-dot {
       display: inline-block;
@@ -520,7 +502,6 @@
             </div>
             <div class="lb-tabs" id="leaderboardTabs"></div>
           </div>
-          <p class="lb-note">Bonus score = CPL (35%) + CPSet (45%) + COM (20%). Each cost is scored against the best in the pod, so 100 means you lead all three.</p>
           <div class="lb-podium" id="leaderboardPodium"></div>
           <div class="lb-table-card">
             <table class="matrix-table" id="leaderboardTable"></table>
@@ -2465,39 +2446,22 @@
         if (!worst || r.bonus[k].lost > r.bonus[worst].lost) worst = k;
       });
       var b = r.bonus[worst];
-      if (b.lost < 0.5) return 'Leading on every bonus metric. Hold the line.';
-      if (b.value <= 0) return 'No ' + labels[worst] + ' data in this range yet. It carries ' + Math.round(b.weight * 100) + '% of the bonus.';
-      var fmt = worst === 'com' ? fmtPct_ : fmtMoney_;
-      return 'Biggest opportunity: ' + labels[worst] + ' (' + Math.round(b.weight * 100) + '% of bonus) at ' + fmt(b.value) +
-        ' vs best ' + fmt(b.best) + '. Closing that gap is worth up to +' + Math.round(b.lost) + ' pts.';
+      if (b.lost < 0.5) return 'Leading on all three';
+      if (b.value <= 0) return 'No ' + labels[worst] + ' data yet';
+      return 'Focus: ' + labels[worst] + ' \u00b7 up to +' + Math.round(b.lost) + ' pts';
     }
 
     function renderLeaderboardPodium(data, win) {
       var el = document.getElementById('leaderboardPodium');
       var ranked = win.rows.slice().sort(function (a, b) { return b.metrics.score - a.metrics.score; });
-      var rows = [['cpl', 'CPL', fmtMoney_], ['cpSet', 'CPSet', fmtMoney_], ['com', 'COM', fmtPct_]];
       el.innerHTML = ranked.map(function (r, i) {
         var color = colorFor(r.person, data.people);
-        var m = r.metrics;
-        var bars = rows.map(function (row) {
-          var b = r.bonus[row[0]];
-          var isBest = b.value > 0 && b.ratio >= 0.9999;
-          var gap = b.value <= 0 ? '<span class="lb-gap lb-gap-behind">no data</span>'
-            : isBest ? '<span class="lb-gap lb-gap-best">Best in pod</span>'
-            : '<span class="lb-gap lb-gap-behind">+' + Math.round((b.value / b.best - 1) * 100) + '% vs best</span>';
-          return '<div><div class="lb-bar-head"><span class="lb-bar-label">' + row[1] + ' \u00b7 ' + Math.round(b.weight * 100) + '%</span>' +
-            '<span><b>' + (b.value > 0 ? row[2](b.value) : '\u2014') + '</b>' + gap + '</span></div>' +
-            '<div class="lb-track"><div class="lb-fill" style="width:' + Math.round(b.ratio * 100) + '%;"></div></div></div>';
-        }).join('');
         return '<div class="lb-card' + (i === 0 ? ' lb-first' : '') + '" style="--c:' + color + ';' +
           (i === 0 ? 'background:' + hexToRgba_(color, 0.05) + ';' : '') + '">' +
           '<div class="lb-top"><span class="lb-badge lb-badge-' + (i + 1) + '">' + (i + 1) + '</span>' +
           '<div class="lb-who"><div class="lb-name">' + r.person + '</div>' +
-          '<div class="lb-meta">' + fmtMoney_(m.revenue) + ' revenue \u00b7 ' + Math.round(m.creatives).toLocaleString() +
-          ' creatives \u00b7 ' + fmtMoney_(m.fbSpend) + ' spend</div></div>' +
-          '<div class="lb-score"><strong>' + Math.round(m.score) + '</strong><span>bonus score</span></div></div>' +
-          '<div class="lb-bars">' + bars + '</div>' +
-          '<div class="lb-tip">' + leaderboardTip_(r) + '</div></div>';
+          '<div class="lb-tip">' + leaderboardTip_(r) + '</div></div>' +
+          '<div class="lb-score"><strong>' + Math.round(r.metrics.score) + '</strong><span>score</span></div></div></div>';
       }).join('');
     }
 
@@ -2514,10 +2478,9 @@
         return;
       }
 
-      label.textContent = SELECTED_LEADERBOARD_WINDOW === 'since'
-        ? 'Leads from ' + shortDay_(win.start) + ' to ' + shortDay_(win.end) + '. Creatives = distinct ads with spend in the same range.'
-        : 'Leads from ' + shortDay_(win.start) + ' to ' + shortDay_(win.end) +
-          ' (42 to 14 days ago), so CPSet, CPD, Revenue and COM have had time to mature. Creatives = distinct ads with spend in the same range.';
+      label.textContent = 'Leads ' + shortDay_(win.start) + ' \u2013 ' + shortDay_(win.end) +
+        (SELECTED_LEADERBOARD_WINDOW === 'matured' ? ' (42\u201314 days ago)' : '') +
+        ' \u00b7 Score = CPL 35% + CPSet 45% + COM 20%, each vs the best in the pod';
 
       if (!win.scored) scoreLeaderboard_(win);
       renderLeaderboardPodium(data, win);
