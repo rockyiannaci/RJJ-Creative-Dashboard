@@ -333,6 +333,8 @@
     @media (max-width: 900px) { .bt-grid { grid-template-columns: 1fr; } }
     .bt-card { border: 1px solid var(--border); border-radius: 12px; padding: 10px 12px; overflow-x: auto; background: #fff; }
     .bt-card.bt-all { border-color: var(--text); }
+    .bt-card.bt-all th:first-child, .bt-card.bt-all td:first-child, .bt-card.bt-all th:last-child, .bt-card.bt-all td.bt-spacer { width: 16%; }
+    .bt-card td.bt-spacer { background: none; padding: 0; }
     .bt-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 6px; }
     .bt-name { font-weight: 700; font-size: 16px; }
     .bt-count { font-size: 13px; color: var(--muted); }
@@ -2520,6 +2522,7 @@
           body += '<td class="' + (st.hit ? 'bt-hit' : st.near ? 'bt-near' : 'bt-miss') + '">' + (st.hit ? '\u2713 ' : '') + m.fmt(cell[m.key]) +
             '<span class="bt-tgt">' + bonusTargetText_(m, st.target) + '</span></td>';
         });
+        if (isAll) body += '<td class="bt-spacer"></td>';
         body += '</tr>';
       });
       var stats = bonusStats_(data, win, cellFor, !isAll);
@@ -2528,8 +2531,8 @@
       return '<div class="bt-card' + (isAll ? ' bt-all' : '') + '"><div class="bt-head"><span class="bt-name"><span class="buyer-dot" style="background:' + dotColor + ';"></span>' + title +
         (subtitle ? ' <span class="bt-count">' + subtitle + '</span>' : '') + '</span>' +
         '<span class="bt-count">' + hits + ' / ' + total + ' targets \u00b7 ' + pct + '% of bonus pool</span></div>' +
-        '<table><thead><tr><th></th>' + BONUS_METRICS.map(function (m) { return '<th>' + m.label + '</th>'; }).join('') + '</tr></thead><tbody>' +
-        (body || '<tr><td colspan="4" style="color:var(--muted);">No bonus-account spend in this window.</td></tr>') + '</tbody></table></div>';
+        '<table><thead><tr><th></th>' + BONUS_METRICS.map(function (m) { return '<th>' + m.label + '</th>'; }).join('') + (isAll ? '<th></th>' : '') + '</tr></thead><tbody>' +
+        (body || '<tr><td colspan="' + (isAll ? 5 : 4) + '" style="color:var(--muted);">No bonus-account spend in this window.</td></tr>') + '</tbody></table></div>';
     }
 
     var BONUS_LEGEND = 'Green = target hit \u00b7 Yellow = within 5% of target \u00b7 tier shown under each value. Bonus pool % = share of the total bonus earned (accounts by spend, metrics 35/45/20; a buyer\u2019s hits count in proportion to their share of that account\u2019s spend).';
