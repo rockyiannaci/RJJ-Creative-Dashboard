@@ -2509,7 +2509,13 @@
     function bonusCardHtml_(data, win, title, dotColor, cellFor, subtitle, isAll) {
       var hits = 0, total = 0, num = 0, den = 0, body = '';
       data.accounts.forEach(function (account) {
-        if (!(data.bonusTargets || {})[account]) return;
+        if (!(data.bonusTargets || {})[account]) {
+          // No bonus target yet (e.g. Bath Planet): keep a placeholder row.
+          body += '<tr><td style="font-weight:600;">' + accountLabel(data, account) + '</td>' +
+            BONUS_METRICS.map(function () { return '<td style="color:var(--muted);">\u2014<span class="bt-tgt">Target TBD</span></td>'; }).join('') +
+            (isAll ? '<td class="bt-spacer"></td>' : '') + '</tr>';
+          return;
+        }
         var cell = cellFor(account);
         if (!cell || !(cell.fbSpend > 0)) return;
         var w = (win.weights || {})[account] || 0;
